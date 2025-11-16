@@ -95,6 +95,12 @@ Integrador/
     - [Requisitos](#requisitos)
     - [Backend](#backend)
     - [Frontend](#frontend)
+  - [Despliegue del Backend con Docker](#despliegue-del-backend-con-docker)
+    - [Construir la imagen Docker](#construir-la-imagen-docker)
+    - [Ejecutar el contenedor](#ejecutar-el-contenedor)
+  - [Nota sobre permisos de Docker en Linux/EC2](#nota-sobre-permisos-de-docker-en-linuxec2)
+  - [Exponer el backend con ngrok](#exponer-el-backend-con-ngrok)
+    - [Instrucciones para usar ngrok en EC2 (complemento, no reemplaza Docker)](#instrucciones-para-usar-ngrok-en-ec2-complemento-no-reemplaza-docker)
   - [Ejemplo de Request/Response de la API](#ejemplo-de-requestresponse-de-la-api)
   - [FAQ - Preguntas Frecuentes](#faq---preguntas-frecuentes)
   - [Reconocimientos y Créditos](#reconocimientos-y-créditos)
@@ -316,9 +322,9 @@ Haz un fork, crea tu rama, realiza tus cambios y abre un Pull Request. ¡Toda ay
 
 Este proyecto está bajo licencia MIT.
 Para consultas o colaboración, contacta a:
-- Nombre: [Tu Nombre]
-- Email: [tu.email@example.com]
-- GitHub: [github.com/tu_usuario]
+- Nombre: [Jorge Espinola]
+- Email: [yorluis@hotmail.com]
+- GitHub: [github.com/thejoresp]
 
 ---
 
