@@ -25,6 +25,25 @@ Nuestra plataforma ayuda a detectar y monitorear condiciones cutáneas frecuente
 
 > **Privacidad:** Tus imágenes se procesan de forma temporal y se eliminan tras el análisis. No almacenamos datos personales.
 
+> **Privacidad:** Tus imágenes se procesan de forma temporal y se eliminan tras el análisis. No almacenamos datos personales.
+
+---
+
+## Nueva Funcionalidad: Análisis Inteligente con OpenAI 🧠✨
+
+Hemos integrado la potencia de los **LLMs (Modelos de Lenguaje Grande)** a través de la API de OpenAI para enriquecer los resultados de nuestros modelos locales.
+
+### ¿Por qué? (Why)
+Los modelos de clasificación de imágenes tradicionales son excelentes para detectar patrones visuales, pero su salida suele ser limitada: una etiqueta (ej. "Acné") y un porcentaje de confianza. Esto a menudo deja al usuario con dudas sobre qué significa realmente ese resultado o qué pasos seguir.
+
+### ¿Para qué? (What for)
+La integración con OpenAI nos permite "traducir" esos datos técnicos en información útil y humana. Ahora, el sistema no solo te dice **qué** podrías tener, sino que también genera dinámicamente:
+- **Explicaciones Claras:** Detalla en lenguaje sencillo las características de la condición detectada.
+- **Contexto Educativo:** Provee información relevante sobre las causas y síntomas comunes.
+- **Recomendaciones Generales:** Ofrece consejos de cuidado personal y medidas preventivas (siempre recordando que NO sustituye a un médico).
+
+De esta forma, pasamos de una simple herramienta de detección a un **asistente de salud dermatológica** más completo y empático.
+
 ---
 
 ## Estructura del Monorepo
@@ -116,6 +135,8 @@ Integrador/
 
 PielSana IA combina lo último en inteligencia artificial y desarrollo web para ofrecer una experiencia robusta y segura:
 
+- **IA Híbrida:** Potente combinación de redes neuronales convolucionales (CNN) locales para visión por computadora y LLMs (OpenAI) para interpretación y generación de texto.
+
 - **Frontend:** Interfaz web desarrollada en React/Vite, fácil de usar y accesible desde cualquier dispositivo.
 - **Backend:** API en FastAPI que gestiona la recepción y análisis de imágenes.
 - **Modelos de IA:** Utiliza un modelo local de análisis dermatológico (por ejemplo, entrenado sobre el dataset HAM10000). El sistema está preparado para integrar modelos adicionales en el futuro.
@@ -127,7 +148,7 @@ PielSana IA combina lo último en inteligencia artificial y desarrollo web para 
 | Capa         | Tecnología                                 |
 |--------------|--------------------------------------------|
 | Frontend     | React, Vite, TypeScript, TailwindCSS       |
-| Backend      | FastAPI, Python, TensorFlow, Keras         |
+| Backend      | FastAPI, Python, TensorFlow, Keras, OpenAI API |
 | Modelos      | Modelos locales (ej: lunares.keras, otros) |
 | Infraestructura | Docker, .env            |
 
