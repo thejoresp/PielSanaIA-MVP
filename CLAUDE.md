@@ -58,10 +58,39 @@ npm run deploy    # publica dist/ en GitHub Pages (gh-pages)
 - `POST /skin/openai-analizar` — envía la imagen a OpenAI (`gpt-4o`) y devuelve JSON `{afeccion, descripcion, recomendaciones}`.
 - `POST /skin/openai-recomendaciones` — dada una predicción, devuelve `{descripcion, recomendaciones}` vía OpenAI.
 
-## Variables de entorno (`.env`, no commitear)
+## Variables de entorno
 
+**Backend** (`.env` en la raíz, no commitear):
 - `OPENAI_API_KEY` — requerida para los endpoints de OpenAI.
 - `LUNARES_MODEL_PATH`, `ACNE_MODEL_PATH`, `ROSACEA_MODEL_PATH` — rutas de los `.keras` (tienen default).
+
+**Frontend** (`frontend/.env`, en build time — Vite):
+- `VITE_API_URL` — URL base del backend. TODO el frontend llama a `${VITE_API_URL}/skin/...`.
+  Si falta, las peticiones apuntan a `undefined/skin/...` y fallan. Debe definirse **antes** de `npm run build`.
+
+## Despliegue
+
+Topología actual:
+- **Backend:** instancia **EC2 Ubuntu 22.04** (`t2.micro`) en AWS, IP `54.82.199.243`. Se provisiona con
+  `infra.sh` (crea VPC, subred, IGW, security group con puertos 22/53/80/8080, EC2 + IP elástica). El
+  user-data (`dockerUbuntu.txt`) instala Docker. Se despliega construyendo la imagen del `backend/Dockerfile`
+  y corriendo el contenedor en el puerto `8080` (`reboot_backend.sh`). `nginx_manager.sh` gestiona Nginx
+  como reverse proxy. Acceso por SSH con `connect_aws.sh` (usa `vockey.pem`).
+- **Frontend:** build estático de Vite publicado con **`npm run deploy`** (gh-pages → GitHub Pages).
+
+### ⚠️ Puntos críticos de despliegue
+1. **Mixed content:** el frontend en GitHub Pages se sirve por **HTTPS**, pero el backend EC2 responde por
+   **HTTP** (`http://54.82.199.243:8080`). El navegador **bloquea** llamadas HTTPS→HTTP. Hay que poner el
+   backend detrás de HTTPS (Nginx + certificado, o un dominio con TLS) y apuntar `VITE_API_URL` a esa URL https.
+2. **Versión de Python:** producción usa `python:3.10-slim` (Dockerfile). El `requirements.txt` fija
+   `tensorflow==2.19.0`, que **no tiene wheels para Python ≥3.13** (solo 2.20+). Para desarrollo local usar
+   Python 3.10–3.12 (o el propio Docker), no 3.13.
+3. **CORS abierto:** `main.py` usa `allow_origins=["*"]`. Restringir al dominio del frontend en producción.
+4. **Modelos `.keras` ausentes del repo** (gitignored). Sin ellos el backend responde 500 en los endpoints de
+   predicción; hay que copiarlos a `backend/modelos/{ham10000,acne,rosacea}/` en el servidor.
+5. **`OPENAI_API_KEY` no debe imprimirse.** Hoy `controllers/skin.py` hace `print` de la key — quitarlo.
+6. **Estado en memoria:** `lunares_results` es un dict en memoria; no sobrevive reinicios ni escala a varias
+   instancias. Persistir (Redis/DB) si se escala.
 
 ## Convenciones y cuidados
 
