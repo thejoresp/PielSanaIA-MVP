@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(npm install)",
+      "Bash(pip install -r backend/requirements.txt)",
+      "Bash(uvicorn backend.main:app:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(backend/.env)"
+    ]
+  }
+}
