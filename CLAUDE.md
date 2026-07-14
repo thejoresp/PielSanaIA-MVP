@@ -12,7 +12,7 @@ enriquecida con explicaciones y recomendaciones vía OpenAI.
 Monorepo con dos servicios independientes:
 
 - **`backend/`** — API REST con **FastAPI** (Python 3.10).
-  - `main.py` — instancia FastAPI, CORS abierto (`allow_origins=["*"]`), monta `skin.router` bajo `/skin`.
+  - `main.py` — instancia FastAPI, CORS configurable por `FRONTEND_ORIGINS` (ya no `allow_origins=["*"]`), monta `skin.router` bajo `/skin`.
   - `controllers/skin.py` — endpoints de análisis + router de OpenAI. Datos de condiciones embebidos en `conditions_data`.
   - `services/skin_analysis_service.py` — carga perezosa de los modelos `.keras` y predicción. Cada modelo se cachea en una global.
   - `config/model_config.py` — rutas de modelos (override por env), fuerza CPU en TensorFlow.
@@ -29,9 +29,13 @@ Frontend y backend se comunican por HTTP; el backend no sirve HTML (las vistas H
 ```bash
 # Dependencias
 pip install -r backend/requirements.txt
+pip install -r backend/requirements-dev.txt   # solo para tests (pytest, httpx)
 
 # Desarrollo (desde la raíz del repo — el paquete es backend.main)
 uvicorn backend.main:app --host 0.0.0.0 --port 8080 --reload
+
+# Tests (desde la raíz; los modelos se mockean, no requieren los .keras)
+python -m pytest backend/tests
 
 # Docker
 sudo docker build -t pielsana-backend -f backend/Dockerfile .
@@ -51,7 +55,7 @@ npm run deploy    # publica dist/ en GitHub Pages (gh-pages)
 
 ## Endpoints principales (prefijo `/skin`)
 
-- `POST /skin/api/analyze` y `POST /skin/api/analyze-lunares` — clasificación de lunares (7 clases HAM10000). `analyze-lunares` guarda el resultado en memoria y devuelve un `id` recuperable con `GET /skin/api/analyze-lunares/{id}`.
+- `POST /skin/api/analyze` y `POST /skin/api/analyze-lunares` — clasificación de lunares (7 clases HAM10000). Ambos devuelven el resultado completo (`prediccion`, `probabilidades`) directamente; el frontend lo pasa entre páginas por `navigate(state)`, igual que acné/rosácea (ya no hay estado en memoria ni recuperación por `id`).
 - `POST /skin/api/analyze-acne` — clasificación binaria de acné (sigmoide).
 - `POST /skin/api/analyze-rosacea` — clasificación binaria de rosácea (sigmoide).
 - `GET  /skin/api/condition/{nombre}` — info estática de una condición (`rosacea`, `acne`, `manchas`, `lunares`).
@@ -60,13 +64,20 @@ npm run deploy    # publica dist/ en GitHub Pages (gh-pages)
 
 ## Variables de entorno
 
+> Plantillas de referencia versionadas: **`.env.example`** (raíz, backend) y **`frontend/.env.example`**.
+> Copiarlas a `.env` / `frontend/.env` y completar; los `.env` reales no se commitean.
+
 **Backend** (`.env` en la raíz, no commitear):
 - `OPENAI_API_KEY` — requerida para los endpoints de OpenAI.
+- `FRONTEND_ORIGINS` — orígenes permitidos por CORS, lista separada por comas. Default: dev local
+  (`http://localhost:5173,http://127.0.0.1:5173`). **En producción definirla** con la URL del frontend.
 - `LUNARES_MODEL_PATH`, `ACNE_MODEL_PATH`, `ROSACEA_MODEL_PATH` — rutas de los `.keras` (tienen default).
 
 **Frontend** (`frontend/.env`, en build time — Vite):
 - `VITE_API_URL` — URL base del backend. TODO el frontend llama a `${VITE_API_URL}/skin/...`.
   Si falta, las peticiones apuntan a `undefined/skin/...` y fallan. Debe definirse **antes** de `npm run build`.
+- `VITE_BASE` — ruta base del build (`vite.config.ts`). Default `/` (dominio propio / raíz). Para
+  GitHub Pages en subruta (`usuario.github.io/REPO`) definir `VITE_BASE="/REPO/"` antes de `npm run build`.
 
 ## Despliegue
 
@@ -79,18 +90,29 @@ Topología actual:
 - **Frontend:** build estático de Vite publicado con **`npm run deploy`** (gh-pages → GitHub Pages).
 
 ### ⚠️ Puntos críticos de despliegue
-1. **Mixed content:** el frontend en GitHub Pages se sirve por **HTTPS**, pero el backend EC2 responde por
-   **HTTP** (`http://54.82.199.243:8080`). El navegador **bloquea** llamadas HTTPS→HTTP. Hay que poner el
-   backend detrás de HTTPS (Nginx + certificado, o un dominio con TLS) y apuntar `VITE_API_URL` a esa URL https.
+1. **Mixed content + dominio vencido:** el frontend en GitHub Pages se sirve por **HTTPS**, pero el backend EC2
+   responde por **HTTP** (`http://54.82.199.243:8080`). El navegador **bloquea** llamadas HTTPS→HTTP. El dominio
+   propio (`pielsanaia.click`) **venció** y no se va a renovar; el plan es usar opciones gratis: frontend en
+   `https://USUARIO.github.io/PielSanaIA-MVP` y backend en un VPS fijo detrás de HTTPS con **DuckDNS + Let's
+   Encrypt** (`https://SUBDOMINIO.duckdns.org`), apuntando `VITE_API_URL` a esa URL https. Ver la memoria del
+   proyecto (pendiente-despliegue-vps).
 2. **Versión de Python:** producción usa `python:3.10-slim` (Dockerfile). El `requirements.txt` fija
    `tensorflow==2.19.0`, que **no tiene wheels para Python ≥3.13** (solo 2.20+). Para desarrollo local usar
    Python 3.10–3.12 (o el propio Docker), no 3.13.
-3. **CORS abierto:** `main.py` usa `allow_origins=["*"]`. Restringir al dominio del frontend en producción.
+3. **CORS:** `main.py` lee `FRONTEND_ORIGINS` (default dev local). Definir en producción la URL real del
+   frontend; ya **no** usa `allow_origins=["*"]`.
 4. **Modelos `.keras` ausentes del repo** (gitignored). Sin ellos el backend responde 500 en los endpoints de
    predicción; hay que copiarlos a `backend/modelos/{ham10000,acne,rosacea}/` en el servidor.
-5. **`OPENAI_API_KEY` no debe imprimirse.** Hoy `controllers/skin.py` hace `print` de la key — quitarlo.
-6. **Estado en memoria:** `lunares_results` es un dict en memoria; no sobrevive reinicios ni escala a varias
-   instancias. Persistir (Redis/DB) si se escala.
+5. **`OPENAI_API_KEY` no se imprime** (se eliminaron los `print` de la key en `controllers/skin.py`). No volver
+   a loguear secretos.
+6. **Validación de subida:** los endpoints validan tipo, tamaño (máx. 8 MB, `MAX_IMAGE_BYTES`) y que la imagen
+   sea decodificable vía `leer_imagen_validada()` en `controllers/skin.py`.
+7. **Estado en memoria:** ✅ eliminado — `analyze-lunares` ya no guarda en un dict; devuelve el resultado
+   directo (el frontend lo pasa por `navigate(state)`). El backend es ahora sin estado. Si a futuro se
+   necesita persistir resultados, usar Redis/DB, no un dict en memoria.
+8. **Email de contacto obsoleto:** el modal de consentimiento (`ImageUploader.tsx`) apunta a
+   `contacto@pielsanaia.click`, que quedó en el dominio **vencido**. Actualizarlo a un correo válido cuando se
+   defina el nuevo (p. ej. el email real del proyecto).
 
 ## Convenciones y cuidados
 
