@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Request, File, UploadFile, HTTPException
-from fastapi.responses import RedirectResponse
-from pathlib import Path
-import asyncio
-import uuid
 import openai
 import base64
 import os
 import re
 import json
+from io import BytesIO
+from PIL import Image
 from pydantic import BaseModel
 
 # Importar el servicio de análisis de piel
@@ -19,6 +17,78 @@ router = APIRouter()
 
 # Crear un nuevo router para OpenAI
 openai_router = APIRouter()
+
+# Límite de tamaño de imagen para evitar abusos y controlar costos (CPU / OpenAI).
+MAX_IMAGE_BYTES = 8 * 1024 * 1024  # 8 MB
+
+
+async def leer_imagen_validada(file: UploadFile) -> bytes:
+    """Valida tipo, tamaño y que sea una imagen decodificable; devuelve los bytes.
+
+    Lanza HTTPException (400/413) ante entradas inválidas. Colocar la llamada
+    fuera de los try/except de los endpoints para que la excepción propague.
+    """
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen.")
+    # Lee en fragmentos y corta apenas se supera el límite, para no cargar en
+    # memoria (ni spoolear a disco) una subida gigante antes de rechazarla.
+    buffer = bytearray()
+    while True:
+        chunk = await file.read(64 * 1024)
+        if not chunk:
+            break
+        buffer.extend(chunk)
+        if len(buffer) > MAX_IMAGE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="La imagen supera el tamaño máximo permitido (8 MB).",
+            )
+    if not buffer:
+        raise HTTPException(status_code=400, detail="El archivo de imagen está vacío.")
+    image_bytes = bytes(buffer)
+    try:
+        Image.open(BytesIO(image_bytes)).verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail="El archivo no es una imagen válida.")
+    return image_bytes
+
+
+async def analizar_con_modelo(file: UploadFile, predict_fn) -> dict:
+    """Valida la imagen, ejecuta el modelo indicado y arma la respuesta estándar.
+
+    Centraliza el flujo común de los endpoints de clasificación (lunares, acné,
+    rosácea) para no repetir validación, manejo de errores y forma de respuesta.
+    """
+    image_bytes = await leer_imagen_validada(file)
+    try:
+        pred_label, probabilities = predict_fn(image_bytes)
+    except Exception as e:
+        print(f"Error analizando la imagen: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor al analizar la imagen: {str(e)}")
+    if pred_label is None:
+        raise HTTPException(status_code=500, detail="No se pudo predecir la clase para la imagen.")
+    return {
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "prediccion": pred_label,
+        "probabilidades": probabilities,
+    }
+
+
+def llamar_openai(messages: list) -> str:
+    """Llama a OpenAI (gpt-4o) y devuelve el texto de la respuesta.
+
+    Maneja los dos fallos frecuentes: falta de API key (503) y error de red/servicio (502).
+    """
+    if not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(status_code=503, detail="El servicio de análisis con IA no está configurado.")
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+    try:
+        response = openai.chat.completions.create(model="gpt-4o", messages=messages, max_tokens=500)
+    except Exception as e:
+        print(f"Error llamando a OpenAI: {e}")
+        raise HTTPException(status_code=502, detail="No se pudo contactar al servicio de análisis. Intenta nuevamente.")
+    return response.choices[0].message.content
 
 # Diccionario de condiciones (temporal, normalmente iría en un archivo aparte)
 conditions_data = {
@@ -153,9 +223,6 @@ conditions_data = {
     ),
 }
 
-# Almacenamiento en memoria para resultados de lunares
-lunares_results = {}
-
 class PrediccionRequest(BaseModel):
     prediccion: str
 
@@ -166,10 +233,8 @@ async def get_upload_page(request: Request):
 
 @router.post("/upload")
 async def handle_image_upload(request: Request, file: UploadFile = File(...)):
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen.")
+    image_bytes = await leer_imagen_validada(file)
     try:
-        image_bytes = await file.read()
         pred_label, probabilities = predict_lunares_class(image_bytes)
         if pred_label is not None:
             print(f"Predicción para {file.filename}: {pred_label}")
@@ -190,54 +255,12 @@ async def get_results_page(request: Request, image_name: str = None, analysis_st
 
 @router.post("/api/analyze", tags=["Skin Analysis API"])
 async def api_analyze_skin(file: UploadFile = File(...)):
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen.")
-    try:
-        image_bytes = await file.read()
-        pred_label, probabilities = predict_lunares_class(image_bytes)
-        if pred_label is not None:
-            return {
-                "filename": file.filename,
-                "content_type": file.content_type,
-                "prediccion": pred_label,
-                "probabilidades": probabilities
-            }
-        else:
-            raise HTTPException(status_code=500, detail="No se pudo predecir la clase para la imagen.")
-    except Exception as e:
-        print(f"Error en API /api/analyze: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor al analizar la imagen: {str(e)}")
+    return await analizar_con_modelo(file, predict_lunares_class)
 
 @router.post("/api/analyze-lunares", tags=["Skin Analysis API"])
 async def api_analyze_lunares(file: UploadFile = File(...)):
     """Endpoint API para analizar una imagen solo con el modelo lunares.keras."""
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen.")
-    try:
-        image_bytes = await file.read()
-        pred_label, probabilities = predict_lunares_class(image_bytes)
-        if pred_label is not None:
-            result_id = str(uuid.uuid4())
-            lunares_results[result_id] = {
-                "filename": file.filename,
-                "content_type": file.content_type,
-                "prediccion": pred_label,
-                "probabilidades": probabilities
-            }
-            return {"id": result_id}
-        else:
-            raise HTTPException(status_code=500, detail="No se pudo predecir la clase para la imagen.")
-    except Exception as e:
-        print(f"Error en API /api/analyze-lunares: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor al analizar la imagen: {str(e)}")
-
-@router.get("/api/analyze-lunares/{result_id}", tags=["Skin Analysis API"])
-async def get_lunares_result(result_id: str):
-    """Obtener el resultado del análisis de lunares por ID."""
-    result = lunares_results.get(result_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Resultado no encontrado")
-    return result
+    return await analizar_con_modelo(file, predict_lunares_class)
 
 @router.get("/api/condition/{condition_name}", response_model=ConditionInfo, tags=["Skin Info"])
 async def get_condition_info(condition_name: str):
@@ -248,76 +271,34 @@ async def get_condition_info(condition_name: str):
 
 @router.post("/api/analyze-acne", tags=["Skin Analysis API"])
 async def api_analyze_acne(file: UploadFile = File(...)):
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen.")
-    try:
-        image_bytes = await file.read()
-        pred_label, probabilities = predict_acne_class(image_bytes)
-        if pred_label is not None:
-            return {
-                "filename": file.filename,
-                "content_type": file.content_type,
-                "prediccion": pred_label,
-                "probabilidades": probabilities
-            }
-        else:
-            raise HTTPException(status_code=500, detail="No se pudo predecir la clase para la imagen.")
-    except Exception as e:
-        print(f"Error en API /api/analyze-acne: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor al analizar la imagen: {str(e)}")
+    return await analizar_con_modelo(file, predict_acne_class)
 
 @router.post("/api/analyze-rosacea", tags=["Skin Analysis API"])
 async def api_analyze_rosacea(file: UploadFile = File(...)):
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen.")
-    try:
-        image_bytes = await file.read()
-        pred_label, probabilities = predict_rosacea_class(image_bytes)
-        if pred_label is not None:
-            return {
-                "filename": file.filename,
-                "content_type": file.content_type,
-                "prediccion": pred_label,
-                "probabilidades": probabilities
-            }
-        else:
-            raise HTTPException(status_code=500, detail="No se pudo predecir la clase para la imagen.")
-    except Exception as e:
-        print(f"Error en API /api/analyze-rosacea: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor al analizar la imagen: {str(e)}")
+    return await analizar_con_modelo(file, predict_rosacea_class)
 
 @openai_router.post("/openai-analizar")
 async def analizar_imagen_openai(file: UploadFile = File(...)):
-    image_bytes = await file.read()
+    image_bytes = await leer_imagen_validada(file)
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
     image_data_url = f"data:{file.content_type};base64,{image_base64}"
 
     prompt = (
         "Analiza la imagen de piel que te envío. "
-        "Dime qué tipo de afección ves (acné, lunares, rosácea, mancha solar, etc.). Que inicie con mayusculash "
+        "Dime qué tipo de afección ves (acné, lunares, rosácea, mancha solar, etc.). Que inicie con mayúscula. "
         "Dame una breve descripción educativa de la afección detectada. "
         "Dame también 5 recomendaciones para esa afección. "
         "Responde en formato JSON con los campos 'afeccion', 'descripcion' y 'recomendaciones' (lista de strings)."
     )
 
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    print("API KEY:", openai_api_key)
-    print("Tamaño de la imagen:", len(image_bytes))
-    openai.api_key = openai_api_key
-    response = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "Eres un dermatólogo experto."},
-            {"role": "user", "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": image_data_url}}
-            ]}
-        ],
-        max_tokens=500
-    )
-    print("Respuesta de OpenAI:", response.choices[0].message.content)
+    content = llamar_openai([
+        {"role": "system", "content": "Eres un dermatólogo experto."},
+        {"role": "user", "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": image_data_url}}
+        ]}
+    ])
 
-    content = response.choices[0].message.content
     # Limpia los bloques de código si existen
     content = re.sub(r"^```json|^```|```$", "", content.strip(), flags=re.MULTILINE).strip()
     try:
@@ -331,27 +312,16 @@ async def analizar_imagen_openai(file: UploadFile = File(...)):
 
 @openai_router.post("/openai-recomendaciones")
 async def obtener_recomendaciones_openai(request: PrediccionRequest):
-    import openai
-    import os
-    import json
-    import re
     prediccion = request.prediccion
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    openai.api_key = openai_api_key
     prompt = (
         f"Tengo un paciente con la siguiente condición dermatológica: '{prediccion}'. "
         "Dame una breve descripción educativa de la condición detectada y 5 recomendaciones para el paciente. "
         "Responde en formato JSON con los campos 'descripcion' (string) y 'recomendaciones' (lista de strings)."
     )
-    response = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "Eres un dermatólogo experto."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=500
-    )
-    content = response.choices[0].message.content
+    content = llamar_openai([
+        {"role": "system", "content": "Eres un dermatólogo experto."},
+        {"role": "user", "content": prompt}
+    ])
     content = re.sub(r"^```json|^```|```$", "", content.strip(), flags=re.MULTILINE).strip()
     try:
         resultado = json.loads(content)

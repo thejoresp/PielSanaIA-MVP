@@ -4,6 +4,17 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.image import img_to_array
 from backend.config.model_config import LUNARES_MODEL_PATH, ACNE_MODEL_PATH, ROSACEA_MODEL_PATH
 
+
+def _preprocesar_imagen(image_bytes: bytes):
+    """Preprocesado uniforme: RGB -> resize 224x224 -> /255.0 -> shape (1,224,224,3)."""
+    img = Image.open(BytesIO(image_bytes))
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    img_resized = img.resize((224, 224))
+    img_array = img_to_array(img_resized) / 255.0
+    return img_array.reshape((1, 224, 224, 3))
+
+
 # --- INICIO: Funciones para modelo lunares.keras ---
 LUNARES_MODEL = None
 LUNARES_CLASS_NAMES = ['akiec', 'bcc', 'bkl', 'df', 'mel', 'nv', 'vasc']
@@ -35,13 +46,7 @@ def predict_lunares_class(image_bytes: bytes):
         print("El modelo lunares.keras no está cargado.")
         return None, None
     try:
-        img = Image.open(BytesIO(image_bytes))
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
-        img_resized = img.resize((224, 224))
-        img_array = img_to_array(img_resized)
-        img_array = img_array / 255.0
-        img_array = img_array.reshape((1, 224, 224, 3))
+        img_array = _preprocesar_imagen(image_bytes)
         preds = model.predict(img_array)
         pred_idx = preds.argmax(axis=1)[0]
         pred_class = LUNARES_CLASS_NAMES[pred_idx]
@@ -79,13 +84,7 @@ def predict_acne_class(image_bytes: bytes):
         print("El modelo acne.keras no está cargado.")
         return None, None
     try:
-        img = Image.open(BytesIO(image_bytes))
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
-        img_resized = img.resize((224, 224))
-        img_array = img_to_array(img_resized)
-        img_array = img_array / 255.0
-        img_array = img_array.reshape((1, 224, 224, 3))
+        img_array = _preprocesar_imagen(image_bytes)
         preds = model.predict(img_array)
         # Como es binario, salida sigmoid: 0 = no_acne, 1 = acne
         pred_idx = int(preds[0][0] > 0.5)
@@ -127,13 +126,7 @@ def predict_rosacea_class(image_bytes: bytes):
         print("El modelo rosacea.keras no está cargado.")
         return None, None
     try:
-        img = Image.open(BytesIO(image_bytes))
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
-        img_resized = img.resize((224, 224))
-        img_array = img_to_array(img_resized)
-        img_array = img_array / 255.0
-        img_array = img_array.reshape((1, 224, 224, 3))
+        img_array = _preprocesar_imagen(image_bytes)
         preds = model.predict(img_array)
         pred_idx = int(preds[0][0] > 0.5)
         pred_class = ROSACEA_CLASS_NAMES[pred_idx]

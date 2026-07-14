@@ -20,19 +20,25 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# Habilitar CORS para el frontend en desarrollo y producción
+# Habilitar CORS para el frontend en desarrollo y producción.
+# Los orígenes permitidos se configuran con la variable de entorno FRONTEND_ORIGINS
+# (lista separada por comas). En producción DEBE definirse con la URL del frontend
+# (p. ej. la de GitHub Pages / dominio propio). Por defecto solo se permite el dev local.
+_default_origins = "http://localhost:5173,http://127.0.0.1:5173"
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("FRONTEND_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-#       "http://localhost:5173",            # Para desarrollo local
-#       "http://127.0.0.1:5173",
-#       "https://pielsana-ia.vercel.app",
-    
 
 # Endpoint de prueba
 @app.get("/")

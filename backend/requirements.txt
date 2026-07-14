@@ -1,9 +1,12 @@
-fastapi
-uvicorn
-transformers
-Pillow
+# Dependencias del backend (Python 3.10, imagen Docker python:3.10-slim).
+# Versiones fijadas para builds reproducibles. Pydantic queda en v1 (usar sintaxis v1).
+# NOTA: estos pines conviene validarlos con un `docker build` del backend; si algún par
+# entra en conflicto, ajustar y regenerar con `pip freeze`.
+fastapi==0.115.6
+uvicorn==0.34.0
+Pillow==11.1.0
 tensorflow==2.19.0
-python-multipart
-python-dotenv
+python-multipart==0.0.20
+python-dotenv==1.0.1
 pydantic==1.10.15
-openai
+openai==1.59.6
