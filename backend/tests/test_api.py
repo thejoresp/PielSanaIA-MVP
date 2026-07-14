@@ -106,12 +106,23 @@ def test_analyze_modelo_no_disponible(monkeypatch):
     assert resp.status_code == 500
 
 
-# --- OpenAI: error de configuración (sin API key) ---
+# --- IA: error de configuración (sin API key) ---
 
-def test_openai_recomendaciones_sin_api_key(monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def test_recomendaciones_sin_deepseek_key(monkeypatch):
+    # /openai-recomendaciones usa DeepSeek: sin DEEPSEEK_API_KEY -> 503.
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     resp = client.post(
         "/skin/openai-recomendaciones",
         json={"prediccion": "acné"},
+    )
+    assert resp.status_code == 503
+
+
+def test_analizar_vision_sin_openai_key(monkeypatch):
+    # /openai-analizar usa visión (OpenAI): sin OPENAI_API_KEY -> 503.
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    resp = client.post(
+        "/skin/openai-analizar",
+        files={"file": ("cara.png", _png_bytes(), "image/png")},
     )
     assert resp.status_code == 503

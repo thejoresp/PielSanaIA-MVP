@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, File, UploadFile, HTTPException
-import openai
+from openai import OpenAI
 import base64
 import os
 import re
@@ -75,20 +75,40 @@ async def analizar_con_modelo(file: UploadFile, predict_fn) -> dict:
     }
 
 
-def llamar_openai(messages: list) -> str:
-    """Llama a OpenAI (gpt-4o) y devuelve el texto de la respuesta.
+# Proveedores de IA (ambos con API compatible con OpenAI):
+# - Texto (descripción / recomendaciones): DeepSeek. Requiere DEEPSEEK_API_KEY.
+# - Visión (detección desde la imagen): OpenAI gpt-4o, porque la API de DeepSeek NO
+#   acepta imágenes. Este flujo es OPCIONAL: sin OPENAI_API_KEY responde 503 y el
+#   resto de la app sigue funcionando solo con DeepSeek.
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+OPENAI_VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", "gpt-4o")
+
+
+def _completar_chat(api_key: str, base_url, model: str, messages: list) -> str:
+    """Ejecuta un chat.completions contra un proveedor compatible con OpenAI.
 
     Maneja los dos fallos frecuentes: falta de API key (503) y error de red/servicio (502).
     """
-    if not os.getenv("OPENAI_API_KEY"):
+    if not api_key:
         raise HTTPException(status_code=503, detail="El servicio de análisis con IA no está configurado.")
-    openai.api_key = os.getenv("OPENAI_API_KEY")
     try:
-        response = openai.chat.completions.create(model="gpt-4o", messages=messages, max_tokens=500)
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        response = client.chat.completions.create(model=model, messages=messages, max_tokens=500)
     except Exception as e:
-        print(f"Error llamando a OpenAI: {e}")
+        print(f"Error llamando al proveedor de IA ({model}): {e}")
         raise HTTPException(status_code=502, detail="No se pudo contactar al servicio de análisis. Intenta nuevamente.")
     return response.choices[0].message.content
+
+
+def llamar_deepseek(messages: list) -> str:
+    """Texto vía DeepSeek (descripción / recomendaciones)."""
+    return _completar_chat(os.getenv("DEEPSEEK_API_KEY"), DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, messages)
+
+
+def llamar_openai_vision(messages: list) -> str:
+    """Visión vía OpenAI gpt-4o (DeepSeek no soporta imágenes por API). Opcional."""
+    return _completar_chat(os.getenv("OPENAI_API_KEY"), None, OPENAI_VISION_MODEL, messages)
 
 # Diccionario de condiciones (temporal, normalmente iría en un archivo aparte)
 conditions_data = {
@@ -291,7 +311,7 @@ async def analizar_imagen_openai(file: UploadFile = File(...)):
         "Responde en formato JSON con los campos 'afeccion', 'descripcion' y 'recomendaciones' (lista de strings)."
     )
 
-    content = llamar_openai([
+    content = llamar_openai_vision([
         {"role": "system", "content": "Eres un dermatólogo experto."},
         {"role": "user", "content": [
             {"type": "text", "text": prompt},
@@ -318,7 +338,7 @@ async def obtener_recomendaciones_openai(request: PrediccionRequest):
         "Dame una breve descripción educativa de la condición detectada y 5 recomendaciones para el paciente. "
         "Responde en formato JSON con los campos 'descripcion' (string) y 'recomendaciones' (lista de strings)."
     )
-    content = llamar_openai([
+    content = llamar_deepseek([
         {"role": "system", "content": "Eres un dermatólogo experto."},
         {"role": "user", "content": prompt}
     ])
