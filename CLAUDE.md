@@ -2,7 +2,9 @@
 
 MVP de análisis de piel por IA. El usuario sube una foto y recibe una clasificación de
 condiciones cutáneas (lunares/HAM10000, acné, rosácea) generada por modelos locales Keras,
-enriquecida con explicaciones y recomendaciones vía OpenAI.
+enriquecida con explicaciones y recomendaciones vía **DeepSeek** (texto). La detección
+automática desde la imagen (endpoint de visión) usa **OpenAI gpt-4o** y es opcional
+(DeepSeek no acepta imágenes por API).
 
 > **Contexto clínico:** es una herramienta educativa/de autocuidado, **no** un diagnóstico
 > médico. Todo texto orientado al usuario debe recordar que no sustituye a un dermatólogo.
@@ -59,8 +61,8 @@ npm run deploy    # publica dist/ en GitHub Pages (gh-pages)
 - `POST /skin/api/analyze-acne` — clasificación binaria de acné (sigmoide).
 - `POST /skin/api/analyze-rosacea` — clasificación binaria de rosácea (sigmoide).
 - `GET  /skin/api/condition/{nombre}` — info estática de una condición (`rosacea`, `acne`, `manchas`, `lunares`).
-- `POST /skin/openai-analizar` — envía la imagen a OpenAI (`gpt-4o`) y devuelve JSON `{afeccion, descripcion, recomendaciones}`.
-- `POST /skin/openai-recomendaciones` — dada una predicción, devuelve `{descripcion, recomendaciones}` vía OpenAI.
+- `POST /skin/openai-analizar` — envía la imagen a **OpenAI `gpt-4o`** (visión) y devuelve JSON `{afeccion, descripcion, recomendaciones}`. Opcional: sin `OPENAI_API_KEY` responde 503. (La ruta conserva el nombre `openai-*` por compatibilidad con el frontend.)
+- `POST /skin/openai-recomendaciones` — dada una predicción, devuelve `{descripcion, recomendaciones}` vía **DeepSeek** (`deepseek-v4-flash`). La ruta mantiene el nombre `openai-*` aunque el proveedor sea DeepSeek.
 
 ## Variables de entorno
 
@@ -68,7 +70,10 @@ npm run deploy    # publica dist/ en GitHub Pages (gh-pages)
 > Copiarlas a `.env` / `frontend/.env` y completar; los `.env` reales no se commitean.
 
 **Backend** (`.env` en la raíz, no commitear):
-- `OPENAI_API_KEY` — requerida para los endpoints de OpenAI.
+- `DEEPSEEK_API_KEY` — **requerida** para `/skin/openai-recomendaciones` (texto). API compatible con OpenAI (`base_url https://api.deepseek.com`).
+- `DEEPSEEK_MODEL` — opcional, default `deepseek-v4-flash` (`deepseek-chat`/`deepseek-reasoner` se deprecan el 2026/07/24).
+- `OPENAI_API_KEY` — **opcional**, solo para `/skin/openai-analizar` (visión gpt-4o). Sin ella ese endpoint responde 503; el resto funciona con DeepSeek.
+- `OPENAI_VISION_MODEL` — opcional, default `gpt-4o`.
 - `FRONTEND_ORIGINS` — orígenes permitidos por CORS, lista separada por comas. Default: dev local
   (`http://localhost:5173,http://127.0.0.1:5173`). **En producción definirla** con la URL del frontend.
 - `LUNARES_MODEL_PATH`, `ACNE_MODEL_PATH`, `ROSACEA_MODEL_PATH` — rutas de los `.keras` (tienen default).
@@ -80,6 +85,9 @@ npm run deploy    # publica dist/ en GitHub Pages (gh-pages)
   GitHub Pages en subruta (`usuario.github.io/REPO`) definir `VITE_BASE="/REPO/"` antes de `npm run build`.
 
 ## Despliegue
+
+> **Guía completa (plan actual): [`DESPLIEGUE.md`](DESPLIEGUE.md)** — frontend en Vercel, backend en
+> VPS Hetzner con Nginx + DuckDNS + Let's Encrypt (docker-compose/nginx documentados ahí).
 
 Topología actual:
 - **Backend:** instancia **EC2 Ubuntu 22.04** (`t2.micro`) en AWS, IP `54.82.199.243`. Se provisiona con
@@ -103,8 +111,8 @@ Topología actual:
    frontend; ya **no** usa `allow_origins=["*"]`.
 4. **Modelos `.keras` ausentes del repo** (gitignored). Sin ellos el backend responde 500 en los endpoints de
    predicción; hay que copiarlos a `backend/modelos/{ham10000,acne,rosacea}/` en el servidor.
-5. **`OPENAI_API_KEY` no se imprime** (se eliminaron los `print` de la key en `controllers/skin.py`). No volver
-   a loguear secretos.
+5. **Secretos:** no loguear `DEEPSEEK_API_KEY` ni `OPENAI_API_KEY` (ya se eliminaron los `print` de keys en
+   `controllers/skin.py`). El proveedor de texto es DeepSeek; OpenAI solo se usa para el endpoint de visión.
 6. **Validación de subida:** los endpoints validan tipo, tamaño (máx. 8 MB, `MAX_IMAGE_BYTES`) y que la imagen
    sea decodificable vía `leer_imagen_validada()` en `controllers/skin.py`.
 7. **Estado en memoria:** ✅ eliminado — `analyze-lunares` ya no guarda en un dict; devuelve el resultado

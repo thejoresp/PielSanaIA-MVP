@@ -18,7 +18,8 @@ Frontend (React SPA, GitHub Pages, HTTPS)
         ▼
 Backend (FastAPI, EC2, HTTP :8080)
         ├── modelos locales Keras/TensorFlow (CPU)  → clasificación
-        └── OpenAI gpt-4o (Vision)                  → descripción + recomendaciones
+        ├── DeepSeek deepseek-v4-flash (texto)      → descripción + recomendaciones
+        └── OpenAI gpt-4o (visión, OPCIONAL)        → detección desde la imagen
 ```
 
 ## 2. Backend (`backend/`, FastAPI + Python 3.10)
@@ -50,8 +51,8 @@ Backend (FastAPI, EC2, HTTP :8080)
   ni `GET /api/analyze-lunares/{id}`; el front lo pasa por `navigate(state)`).
 - `POST /api/analyze-acne`, `POST /api/analyze-rosacea` — binarios.
 - `GET /api/condition/{nombre}` — info estática (`rosacea`, `acne`, `manchas`, `lunares`).
-- `POST /openai-analizar` — imagen → OpenAI gpt-4o → JSON `{afeccion, descripcion, recomendaciones}`.
-- `POST /openai-recomendaciones` — `{prediccion}` → OpenAI → `{descripcion, recomendaciones}`.
+- `POST /openai-analizar` — imagen → **OpenAI gpt-4o** (visión) → JSON `{afeccion, descripcion, recomendaciones}`. Opcional: sin `OPENAI_API_KEY` → 503.
+- `POST /openai-recomendaciones` — `{prediccion}` → **DeepSeek** → `{descripcion, recomendaciones}`. (La ruta mantiene el nombre `openai-*` por compatibilidad con el frontend, aunque el proveedor sea DeepSeek.)
 - Las vistas HTML (`GET /skin/`, `/skin/results`) devuelven **404 a propósito** (las sirve el frontend).
 
 ## 3. Frontend (`frontend/`, React 18 + TS + Vite + Tailwind)
@@ -92,7 +93,7 @@ Backend (FastAPI, EC2, HTTP :8080)
 | 5 | **TensorFlow 2.19.0** sin wheels para Python ≥3.13 | `requirements.txt` | Dev local con Python 3.10–3.12 o Docker |
 | 6 | ✅ **RESUELTO** — `requirements.txt` con versiones fijas y `transformers` (sin uso) eliminado; deps de test en `requirements-dev.txt` | `backend/` | Builds reproducibles (validar pines con un `docker build`) |
 | 7 | ✅ **RESUELTO** — `vite.config.ts` con `base` configurable (`VITE_BASE`, default `/`) | frontend | Assets correctos en subruta o dominio propio |
-| 8 | ✅ **RESUELTO** — endpoints de clasificación deduplicados con `analizar_con_modelo()`; preprocesado unificado en `_preprocesar_imagen()`; OpenAI centralizado en `llamar_openai()` con manejo de errores (502/503) | `skin.py`, `skin_analysis_service.py` | Menos superficie de bugs |
+| 8 | ✅ **RESUELTO** — endpoints de clasificación deduplicados con `analizar_con_modelo()`; preprocesado unificado en `_preprocesar_imagen()`; llamadas a IA centralizadas en `_completar_chat()` (`llamar_deepseek` / `llamar_openai_vision`) con manejo de errores (502/503) | `skin.py`, `skin_analysis_service.py` | Menos superficie de bugs |
 | 9 | ✅ **RESUELTO** — suite `pytest` en `backend/tests/` (modelos mockeados) | `backend/tests/` | Red de seguridad básica |
 | 10 | ✅ **RESUELTO** — `setup-lightshot.exe` (2.7 MB) y `.gitignore.bak` eliminados con `git rm`; `.gitignore` ahora ignora `*.exe`/`*.bak` | repo | Repo limpio |
 | 11 | ✅ **RESUELTO** — `leer_imagen_validada` lee por fragmentos (64 KB) y corta apenas supera 8 MB; ya no carga la subida entera antes de rechazarla | `skin.py` | Mitigación DoS efectiva |
