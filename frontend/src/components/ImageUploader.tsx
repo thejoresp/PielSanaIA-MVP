@@ -122,29 +122,32 @@ const ImageUploader: React.FC = () => {
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      e.dataTransfer.clearData();
-    }
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+  const processFile = (file: File) => {
     if (!file.type.match('image.*')) {
       alert('Por favor sube una imagen válida');
       return;
     }
     setSelectedFile(file);
     const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target && typeof ev.target.result === 'string') {
-          setImage(ev.target.result);
+    reader.onload = (ev) => {
+      if (ev.target && typeof ev.target.result === 'string') {
+        setImage(ev.target.result);
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processFile(e.target.files[0]);
     }
   };
 
@@ -200,7 +203,7 @@ const ImageUploader: React.FC = () => {
       } else if (isOpenAI) {
         navigate(`/results-openai`, { state: { analysis: data } });
       } else {
-      navigate(`/results/${data.id || data.filename}`);
+        navigate('/results', { state: { analysis: data } });
       }
     } catch {
       alert('Error al analizar la imagen');

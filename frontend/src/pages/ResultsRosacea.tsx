@@ -2,19 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { ArrowLeft, Thermometer, CheckCircle, AlertTriangle } from 'lucide-react';
 
-const rosaceaDescription = 'La rosácea es una afección crónica que causa enrojecimiento y vasos sanguíneos visibles en la cara. Puede producir brotes de enrojecimiento, granos y, en casos graves, engrosamiento de la piel.';
-
 const ResultsRosacea: React.FC = () => {
   const location = useLocation();
   const analysis = location.state?.analysis;
   const [recomendaciones, setRecomendaciones] = useState<string[]>([]);
-  const [loadingRec, setLoadingRec] = useState(false);
   const [descripcion, setDescripcion] = useState<string>("");
   const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     if (analysis?.prediccion) {
-      setLoadingRec(true);
       fetch(`${API_URL}/skin/openai-recomendaciones`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -28,8 +24,7 @@ const ResultsRosacea: React.FC = () => {
         .catch(() => {
           setRecomendaciones([]);
           setDescripcion("");
-        })
-        .finally(() => setLoadingRec(false));
+        });
     }
   }, [analysis, API_URL]);
 

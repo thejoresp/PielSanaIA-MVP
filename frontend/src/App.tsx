@@ -15,7 +15,6 @@ function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="results" element={<ResultsLunares />} />
-        <Route path="results/:id" element={<ResultsLunares />} />
         <Route path="results-acne" element={<ResultsAcne />} />
         <Route path="results-rosacea" element={<ResultsRosacea />} />
         <Route path="results-openai" element={<ResultsOpenAI />} />

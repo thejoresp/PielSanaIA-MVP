@@ -1,31 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { ArrowLeft, Crosshair, CheckCircle, AlertTriangle } from 'lucide-react';
 
-const lunaresDescription = 'Los lunares son áreas pequeñas de pigmentación en la piel. La mayoría son inofensivos, pero es importante monitorearlos y consultar con un dermatólogo si presentan cambios.';
-
 const ResultsLunares: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const [loading, setLoading] = useState(true);
-  const [analysis, setAnalysis] = useState<any | null>(null);
+  const location = useLocation();
+  const analysis = location.state?.analysis;
   const [recomendaciones, setRecomendaciones] = useState<string[]>([]);
-  const [loadingRec, setLoadingRec] = useState(false);
   const [descripcion, setDescripcion] = useState<string>("");
   const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    fetch(`${API_URL}/skin/api/analyze-lunares/${id}`)
-      .then(res => res.json())
-      .then(setAnalysis)
-      .catch(() => setAnalysis({ error: 'No se pudo obtener el resultado.' }))
-      .finally(() => setLoading(false));
-  }, [id, API_URL]);
-
-  useEffect(() => {
     if (analysis?.prediccion) {
-      setLoadingRec(true);
       fetch(`${API_URL}/skin/openai-recomendaciones`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -39,17 +24,15 @@ const ResultsLunares: React.FC = () => {
         .catch(() => {
           setRecomendaciones([]);
           setDescripcion("");
-        })
-        .finally(() => setLoadingRec(false));
+        });
     }
   }, [analysis, API_URL]);
 
-  if (loading) {
+  if (!analysis) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8 flex flex-col items-center justify-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-600 mb-4"></div>
-        <h2 className="text-xl font-semibold text-gray-700">Analizando resultados...</h2>
-        <p className="text-gray-500 mt-2">Esto puede tomar unos momentos</p>
+      <div className="p-8">
+        <h2 className="text-xl font-bold mb-4">No hay resultado disponible</h2>
+        <Link to="/">Volver al inicio</Link>
       </div>
     );
   }
