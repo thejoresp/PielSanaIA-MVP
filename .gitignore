@@ -50,6 +50,10 @@ frontend/.env.cloud
 # key ssh
 *.pem
 
+# Binarios y backups que no deben versionarse
+*.exe
+*.bak
+
 # Ignorar todos los archivos de modelo Keras
 *.keras
 
