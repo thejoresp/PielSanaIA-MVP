@@ -29,15 +29,18 @@ Nuestra plataforma ayuda a detectar y monitorear condiciones cutáneas frecuente
 
 ---
 
-## Nueva Funcionalidad: Análisis Inteligente con OpenAI 🧠✨
+## Análisis Inteligente con LLMs 🧠✨
 
-Hemos integrado la potencia de los **LLMs (Modelos de Lenguaje Grande)** a través de la API de OpenAI para enriquecer los resultados de nuestros modelos locales.
+Hemos integrado la potencia de los **LLMs (Modelos de Lenguaje Grande)** para enriquecer los
+resultados de nuestros modelos locales. El proveedor de **texto** (explicaciones y
+recomendaciones) es **DeepSeek**; **OpenAI `gpt-4o`** se usa únicamente para el endpoint
+opcional de **visión**, porque la API de DeepSeek no acepta imágenes.
 
 ### ¿Por qué? (Why)
 Los modelos de clasificación de imágenes tradicionales son excelentes para detectar patrones visuales, pero su salida suele ser limitada: una etiqueta (ej. "Acné") y un porcentaje de confianza. Esto a menudo deja al usuario con dudas sobre qué significa realmente ese resultado o qué pasos seguir.
 
 ### ¿Para qué? (What for)
-La integración con OpenAI nos permite "traducir" esos datos técnicos en información útil y humana. Ahora, el sistema no solo te dice **qué** podrías tener, sino que también genera dinámicamente:
+La integración con estos modelos nos permite "traducir" esos datos técnicos en información útil y humana. Ahora, el sistema no solo te dice **qué** podrías tener, sino que también genera dinámicamente:
 - **Explicaciones Claras:** Detalla en lenguaje sencillo las características de la condición detectada.
 - **Contexto Educativo:** Provee información relevante sobre las causas y síntomas comunes.
 - **Recomendaciones Generales:** Ofrece consejos de cuidado personal y medidas preventivas (siempre recordando que NO sustituye a un médico).
@@ -49,25 +52,35 @@ De esta forma, pasamos de una simple herramienta de detección a un **asistente 
 ## Estructura del Monorepo
 
 ```
-Integrador/
-├── frontend/               ← React + Vite
+PielSanaIA-MVP/
+├── frontend/                  ← React 18 + TS + Vite + Tailwind
 │   ├── src/
+│   │   ├── api/               ← client.ts (URL base, ApiError) + skin.ts (un fn por endpoint)
+│   │   ├── types/             ← formas de las respuestas del backend
+│   │   ├── constants/         ← catálogo de tipos de análisis
+│   │   ├── hooks/             ← useAnalisisImagen (estado del flujo de subida)
+│   │   ├── components/
+│   │   │   ├── ui/            ← Spinner, BannerError
+│   │   │   ├── upload/        ← ImageUploader, ConsentModal, ZonaDeSubida...
+│   │   │   └── results/       ← ResultadoLayout (compartido por las 4 páginas)
+│   │   └── pages/             ← una por ruta
 │   ├── public/
-│   ├── package.json
-│   ├── vite.config.js
-│   └── ...
-├── backend/                ← FastAPI y modelos locales
-│   ├── main.py
-│   ├── requirements.txt
-│   ├── config/
-│   ├── controllers/
-│   ├── models/
-│   ├── services/
-│   ├── templates/
-│   ├── routes.py
-│   └── modelos/           ← Aquí van los modelos preentrenados locales
-├── README.md
-└── .gitignore
+│   └── vite.config.ts
+├── backend/                   ← FastAPI + modelos locales
+│   ├── main.py                ← app, CORS, rate limiter, warmup, /health
+│   ├── controllers/           ← endpoints
+│   ├── services/              ← carga de modelos y predicción
+│   ├── data/                  ← fichas estáticas de condiciones
+│   ├── config/                ← rutas de modelos, rate limit
+│   ├── models/                ← esquemas Pydantic
+│   ├── tests/                 ← pytest (modelos mockeados)
+│   ├── modelos/               ← los .keras (NO versionados)
+│   ├── Dockerfile
+│   └── requirements.txt
+├── AUDITORIA.md               ← deuda técnica con checkboxes
+├── CLAUDE.md                  ← guía de arquitectura
+├── DESPLIEGUE.md              ← guía de despliegue vigente
+└── README.md
 ```
 
 ---
@@ -118,8 +131,7 @@ Integrador/
     - [Construir la imagen Docker](#construir-la-imagen-docker)
     - [Ejecutar el contenedor](#ejecutar-el-contenedor)
   - [Nota sobre permisos de Docker en Linux/EC2](#nota-sobre-permisos-de-docker-en-linuxec2)
-  - [Exponer el backend con ngrok](#exponer-el-backend-con-ngrok)
-    - [Instrucciones para usar ngrok en EC2 (complemento, no reemplaza Docker)](#instrucciones-para-usar-ngrok-en-ec2-complemento-no-reemplaza-docker)
+  - [Despliegue en producción](#despliegue-en-producción)
   - [Ejemplo de Request/Response de la API](#ejemplo-de-requestresponse-de-la-api)
   - [FAQ - Preguntas Frecuentes](#faq---preguntas-frecuentes)
   - [Reconocimientos y Créditos](#reconocimientos-y-créditos)
@@ -135,7 +147,7 @@ Integrador/
 
 PielSana IA combina lo último en inteligencia artificial y desarrollo web para ofrecer una experiencia robusta y segura:
 
-- **IA Híbrida:** Potente combinación de redes neuronales convolucionales (CNN) locales para visión por computadora y LLMs (OpenAI) para interpretación y generación de texto.
+- **IA Híbrida:** Potente combinación de redes neuronales convolucionales (CNN) locales para visión por computadora y LLMs (DeepSeek para texto, OpenAI gpt-4o para visión) para interpretación y generación de texto.
 
 - **Frontend:** Interfaz web desarrollada en React/Vite, fácil de usar y accesible desde cualquier dispositivo.
 - **Backend:** API en FastAPI que gestiona la recepción y análisis de imágenes.
@@ -148,7 +160,7 @@ PielSana IA combina lo último en inteligencia artificial y desarrollo web para 
 | Capa         | Tecnología                                 |
 |--------------|--------------------------------------------|
 | Frontend     | React, Vite, TypeScript, TailwindCSS       |
-| Backend      | FastAPI, Python, TensorFlow, Keras, OpenAI API |
+| Backend      | FastAPI, Python, TensorFlow, Keras, DeepSeek API, OpenAI API (visión) |
 | Modelos      | Modelos locales (ej: lunares.keras, otros) |
 | Infraestructura | Docker, .env            |
 
@@ -243,39 +255,19 @@ Luego cierra y vuelve a abrir la sesión para que los cambios tengan efecto.
 ---
 
 
-## Exponer el backend con ngrok
+## Despliegue en producción
 
-### Instrucciones para usar ngrok en EC2 (complemento, no reemplaza Docker)
+> **Guía vigente: [`DESPLIEGUE.md`](DESPLIEGUE.md)** — frontend en **Vercel**, backend en un
+> **VPS Hetzner** con Nginx + DuckDNS + Let's Encrypt (HTTPS).
 
+Las instrucciones de **EC2 + ngrok** que estaban en esta sección quedaron obsoletas: eran de una
+etapa anterior del proyecto y ya no reflejan la topología. El dominio propio `pielsanaia.click`
+venció y no se renovará.
 
-2. **Instala y ejecuta ngrok en tu instancia EC2**
-   ```bash
-   wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
-   tar -xvzf ngrok-v3-stable-linux-amd64.tgz
-   sudo mv ngrok /usr/local/bin
-   ngrok http 8080
-   ```
-   (Opcional: agrega tu authtoken si tienes cuenta en ngrok)
+Estado de salud del servicio: `GET /health` devuelve `{status, version, modelos}`, con el estado
+de carga de cada modelo `.keras`.
 
-3. **Copia la URL HTTPS que te da ngrok**
-   (por ejemplo, `https://abcd1234.ngrok.io`)
-
-4. **Entra a Vercel y cambia la variable de entorno `VITE_API_URL`**
-   Pon la URL de ngrok y vuelve a desplegar el frontend.
-
-5. **¡Listo!**
-   Tu frontend en Vercel podrá comunicarse con el backend por HTTPS sin problemas de mixed-content.
-
-> Recuerda: cada vez que reinicies ngrok, la URL cambiará y deberás actualizarla en Vercel.
-
-> **Nota importante:**
-> 
-> El backend de PielSana IA debe estar siempre corriendo (por ejemplo, usando Docker, como se explica en las secciones anteriores).
-> 
-> La sección de ngrok es una opción adicional pensada para exponer temporalmente el backend por HTTPS, facilitando la integración con frontends desplegados en plataformas como Vercel (que requieren HTTPS para evitar problemas de mixed-content).
-> 
-> **ngrok no reemplaza Docker ni la ejecución normal del servidor:** simplemente crea un túnel seguro hacia el backend ya montado en Docker, útil para pruebas, demos o MVP, 
-
+---
 
 ## Ejemplo de Request/Response de la API
 
@@ -290,9 +282,9 @@ file: imagen.png
 **Response:**
 ```json
 {
-  "prediccion": "Lúnar Común (Nevus)",
+  "prediccion": "Lunar Común (Nevus)",
   "probabilidades": {
-    "Lúnar Común (Nevus)": 0.85,
+    "Lunar Común (Nevus)": 0.85,
     "Melanoma": 0.10,
     "Queratosis Benigna": 0.05
   },
@@ -328,7 +320,11 @@ Actualmente, el modelo base solo clasifica imágenes según las condiciones sopo
 
 ## Política de Privacidad
 
-Este proyecto procesa imágenes de manera temporal y no almacena datos personales. Si se despliega públicamente, se recomienda agregar una política de privacidad detallada.
+Este proyecto procesa imágenes de manera temporal y no almacena datos personales.
+
+> ⚠️ **Pendiente:** la app trata **datos biométricos sensibles** y cita la Ley 25.326 en su modal
+> de consentimiento, pero todavía **no tiene publicada una política de privacidad**. Es el hueco
+> legal más visible del proyecto (ítem C6 de [`AUDITORIA.md`](AUDITORIA.md)).
 
 ---
 
@@ -354,20 +350,20 @@ Para consultas o colaboración, contacta a:
 ### Modelos locales
 - Puedes integrar cualquier modelo local de análisis dermatológico (por ejemplo, lunares.keras entrenado sobre HAM10000, u otros modelos propios o de terceros).
 - El sistema es modular y permite agregar nuevos modelos fácilmente.
-- **Próximamente:** Se sumarán modelos específicos para la detección de rosácea y acné, ampliando el alcance de la plataforma.
+- **Modelos incluidos hoy:** lunares (HAM10000, 7 clases), acné y rosácea (binarios).
 - **Ejemplo de predicciones del modelo lunares.keras:**
   - Queratosis Actínica
   - Carcinoma Basocelular
   - Queratosis Benigna
   - Dermatofibroma
   - Melanoma
-  - Lúnar Común (Nevus)
+  - Lunar Común (Nevus)
   - Lesión Vascular
 
 > **Nota importante:**
 > 
 > El backend de PielSana IA debe estar siempre corriendo (por ejemplo, usando Docker, como se explica en las secciones anteriores).
 > 
-> La sección de ngrok es una opción adicional pensada para exponer temporalmente el backend por HTTPS, facilitando la integración con frontends desplegados en plataformas como Vercel (que requieren HTTPS para evitar problemas de mixed-content).
-> 
-> **ngrok no reemplaza Docker ni la ejecución normal del servidor:** simplemente crea un túnel seguro hacia el backend ya montado en Docker, útil para pruebas, demos o MVP, pero no para producción.
+> El frontend se sirve por HTTPS, así que el backend **también** tiene que estar detrás de HTTPS:
+> un navegador bloquea las llamadas HTTPS→HTTP (*mixed content*). El plan vigente resuelve esto con
+> DuckDNS + Let's Encrypt en el VPS; ver [`DESPLIEGUE.md`](DESPLIEGUE.md).

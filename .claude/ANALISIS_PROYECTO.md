@@ -3,6 +3,10 @@
 > Documento de contexto generado tras un análisis del código (2026-07-12). Complementa
 > `CLAUDE.md` (raíz) y `.claude/agents/pielsana.md`; no los repite, los amplía con hallazgos
 > del código real. Actualizar cuando la arquitectura cambie.
+>
+> **Para la deuda técnica pendiente ver [`AUDITORIA.md`](../AUDITORIA.md)** (auditoría completa
+> del 2026-07-19, con hallazgos numerados y checkboxes). La tabla de la §5 de acá quedó
+> subsumida por ese documento.
 
 ## 1. Qué es
 
@@ -26,50 +30,66 @@ Backend (FastAPI, EC2, HTTP :8080)
 
 | Archivo | Rol |
 |---|---|
-| `main.py` | Instancia FastAPI, CORS configurable por `FRONTEND_ORIGINS` (ya no `["*"]`), monta `skin.router` bajo `/skin`. `GET /` redirige a `/skin/`. |
-| `controllers/skin.py` | Todos los endpoints + `conditions_data` embebido + router OpenAI. |
-| `services/skin_analysis_service.py` | Carga perezosa de los 3 `.keras` (cacheados en globales) y predicción. |
+| `main.py` | Instancia FastAPI, `logging`, CORS por `FRONTEND_ORIGINS`, registro del rate limiter, warmup de modelos en el `startup`. `GET /` describe la API y `GET /health` reporta el estado de cada modelo. |
+| `controllers/skin.py` | Solo endpoints y validación de entrada. |
+| `services/skin_analysis_service.py` | `_ModeloKeras` (carga perezosa cacheada, con `threading.Lock`) + `_clasificar_multiclase` / `_clasificar_binario`. Expone `predict_*_class` y `precargar_modelos()`. |
 | `config/model_config.py` | Rutas de modelos (override por env), fuerza CPU, limita threads, crea dirs. |
-| `models/condition.py` | Pydantic v1 `ConditionInfo`. |
+| `config/rate_limit.py` | Instancia compartida de `slowapi` + los dos límites. |
 
 ### Flujo de predicción (contrato a respetar)
-1. `predict_*_class(image_bytes)` llama a `load_*_model()` (perezoso, cachea en global).
+1. `predict_*_class(image_bytes)` delega en un `_ModeloKeras`, que carga el `.keras` la primera vez
+   (protegido por lock) o lo toma del cache. El `startup` ya los precarga.
 2. Preprocesado **uniforme**: `RGB → resize 224x224 → /255.0 → reshape (1,224,224,3)`.
 3. Si el modelo no carga o falla → devuelve `(None, None)` → el endpoint responde **500**. No romper esto.
+4. La inferencia se invoca siempre con `await run_in_threadpool(...)`: es CPU-bound y bloquearía
+   el event loop.
 
 ### Modelos y salidas
 - **Lunares** (`ham10000/lunares.keras`): multiclase, 7 clases HAM10000 (`argmax`).
   Clases → etiquetas ES: `akiec`=Queratosis Actínica, `bcc`=Carcinoma Basocelular, `bkl`=Queratosis
-  Benigna, `df`=Dermatofibroma, `mel`=Melanoma, `nv`=Lúnar Común (Nevus), `vasc`=Lesión Vascular.
+  Benigna, `df`=Dermatofibroma, `mel`=Melanoma, `nv`=Lunar Común (Nevus), `vasc`=Lesión Vascular.
 - **Acné** (`acne/acne.keras`): binario sigmoide, `> 0.5` → "Con acné" / "Sin acné".
 - **Rosácea** (`rosacea/rosacea.keras`): binario sigmoide, `> 0.5` → "Con rosácea" / "Sin rosácea".
 - Los `.keras` **no están versionados** (gitignored, solo `.gitkeep`). Sin ellos → 500.
 
 ### Endpoints (prefijo `/skin`)
-- `POST /api/analyze` y `POST /upload` — lunares, devuelven predicción directa (casi duplicados).
-- `POST /api/analyze-lunares` — lunares, devuelve el resultado completo directo (ya sin dict en memoria
-  ni `GET /api/analyze-lunares/{id}`; el front lo pasa por `navigate(state)`).
+- `POST /api/analyze` y `POST /api/analyze-lunares` — lunares, resultado completo directo
+  (sin dict en memoria; el front lo pasa por `navigate(state)`).
 - `POST /api/analyze-acne`, `POST /api/analyze-rosacea` — binarios.
-- `GET /api/condition/{nombre}` — info estática (`rosacea`, `acne`, `manchas`, `lunares`).
 - `POST /openai-analizar` — imagen → **OpenAI gpt-4o** (visión) → JSON `{afeccion, descripcion, recomendaciones}`. Opcional: sin `OPENAI_API_KEY` → 503.
-- `POST /openai-recomendaciones` — `{prediccion}` → **DeepSeek** → `{descripcion, recomendaciones}`. (La ruta mantiene el nombre `openai-*` por compatibilidad con el frontend, aunque el proveedor sea DeepSeek.)
-- Las vistas HTML (`GET /skin/`, `/skin/results`) devuelven **404 a propósito** (las sirve el frontend).
+- `POST /openai-recomendaciones` — `{prediccion}` → **DeepSeek** → `{descripcion, recomendaciones}`.
+  El body solo acepta una de las **11 etiquetas** de los modelos; otro texto → 422 (anti prompt injection).
+  (La ruta mantiene el nombre `openai-*` por compatibilidad con el frontend.)
+- Fuera de `/skin`: `GET /health` y `GET /`.
+- **Rate limiting por IP** (`slowapi`): 20/min en los endpoints de modelo, 10/min en los de IA.
+  Detrás de Nginx hace falta `uvicorn --proxy-headers`.
+- Las vistas HTML (`/skin/`, `/skin/results`) y `POST /skin/upload` **se eliminaron**: el backend
+  solo devuelve JSON.
 
 ## 3. Frontend (`frontend/`, React 18 + TS + Vite + Tailwind)
 
-- Ruteo con `react-router-dom` (`App.tsx`): `Home`, `results` / `results/:id` (Lunares),
-  `results-acne`, `results-rosacea`, `results-openai`, `conditions/:condition`, `about`.
-- **Una página de resultados por modelo.** Los cuatro flujos pasan el resultado por `navigate(state)`
-  (lunares se unificó con acné/rosácea/openai; ya no usa `id` ni backend con estado).
-- `components/ImageUploader.tsx` es el corazón del flujo: 4 tarjetas de análisis
-  (`acne`, `rosacea`, `moles`, `openai`) → modal de **consentimiento** (Ley 25.326) obligatorio →
-  selección de imagen → `handleAnalyze()` enruta al endpoint según `analysisType`.
-- Todas las llamadas usan `import.meta.env.VITE_API_URL` como base → `${VITE_API_URL}/skin/...`.
-  Si falta, apunta a `undefined/skin/...` y falla. Debe definirse **antes** de `npm run build`.
+- Ruteo con `react-router-dom` (`App.tsx`): `Home`, `results` (Lunares), `results-acne`,
+  `results-rosacea`, `results-openai`, `conditions/:condition`, `about`. Todas salvo `Home` van
+  con `React.lazy`. `BrowserRouter` usa `basename={import.meta.env.BASE_URL}`.
+- **Organizado por capas** (ver la tabla en `CLAUDE.md`): `api/` · `types/` · `constants/` ·
+  `hooks/` · `components/{ui,upload,results}/` · `pages/`.
+- **Ningún componente hace `fetch`**: todo pasa por `api/skin.ts`, y `api/client.ts` traduce los
+  errores a un `ApiError` con mensaje listo para mostrar (incluye 429 del rate limiting).
+  Se renderiza con `<BannerError />`; ya no hay `alert()`.
+- **Flujo de subida** (`components/upload/`): `SelectorTipoAnalisis` (lee el catálogo de
+  `constants/analisis.ts`) → `ConsentModal` (Ley 25.326, obligatorio) → `ZonaDeSubida` →
+  `VistaPreviaImagen`. El estado vive en `hooks/useAnalisisImagen.ts`; `ImageUploader` solo compone.
+  Agregar un tipo de análisis = una entrada en el catálogo + su ruta en `App.tsx`.
+- **Páginas de resultados**: las 4 comparten `components/results/ResultadoLayout.tsx`, donde vive
+  el disclaimer médico una sola vez. Los cuatro flujos pasan el resultado por `navigate(state)`,
+  que no sobrevive a un refresh → de ahí `SinResultado`.
+- `main.tsx` monta un `ErrorBoundary`; sin él una excepción en render dejaba pantalla en blanco.
+- Todas las llamadas usan `import.meta.env.VITE_API_URL` como base. Si falta, `api/client.ts`
+  loguea un error explícito en consola. Debe definirse **antes** de `npm run build`.
   Plantilla en `frontend/.env.example`.
 - `package.json` ya se llama `pielsana-ia` (antes `dermascan-skin-analysis`).
 - El modal de consentimiento apunta a `contacto@pielsanaia.click`, correo del dominio **vencido**;
-  actualizar cuando haya uno nuevo.
+  está aislado en la constante `CONTACTO_DATOS` de `components/upload/ConsentModal.tsx`.
 
 ## 4. Despliegue
 
@@ -97,11 +117,16 @@ Backend (FastAPI, EC2, HTTP :8080)
 | 9 | ✅ **RESUELTO** — suite `pytest` en `backend/tests/` (modelos mockeados) | `backend/tests/` | Red de seguridad básica |
 | 10 | ✅ **RESUELTO** — `setup-lightshot.exe` (2.7 MB) y `.gitignore.bak` eliminados con `git rm`; `.gitignore` ahora ignora `*.exe`/`*.bak` | repo | Repo limpio |
 | 11 | ✅ **RESUELTO** — `leer_imagen_validada` lee por fragmentos (64 KB) y corta apenas supera 8 MB; ya no carga la subida entera antes de rechazarla | `skin.py` | Mitigación DoS efectiva |
-| 12 | ✅ **RESUELTO** — drag & drop funciona: `handleDrop` procesa el archivo soltado vía `processFile()` compartido con el input | `ImageUploader.tsx` | Arrastrar imagen ahora carga la vista previa |
-| 13 | ✅ **RESUELTO parcialmente** — `package.json` renombrado a `pielsana-ia`; imports muertos (`Path`, `asyncio`, `RedirectResponse`) eliminados de `skin.py`. **Pendiente:** `/upload` legacy aún duplica `/api/analyze`; `print()` usado como logging (migrar a `logging`) | repo | Limpieza menor |
+| 12 | ✅ **RESUELTO** — drag & drop funciona; hoy vive en `ZonaDeSubida.tsx`, que comparte el mismo callback entre el drop y el input | `components/upload/` | Arrastrar imagen carga la vista previa |
+| 13 | ✅ **RESUELTO** — `package.json` renombrado a `pielsana-ia`; imports muertos eliminados; `/upload`, `/skin/` y `/skin/results` borrados; `print()` migrado a `logging` (cero `print` en `backend/`) | repo | Limpieza saldada |
 | 14 | ✅ **AÑADIDO** — plantillas `.env.example` (raíz/backend) y `frontend/.env.example` | repo | Onboarding/despliegue con las env vars documentadas |
-| 15 | Pendiente: **email de contacto** `contacto@pielsanaia.click` (modal de consentimiento) quedó en el dominio vencido | `ImageUploader.tsx` | Actualizar a un correo válido |
+| 15 | Pendiente: **email de contacto** `contacto@pielsanaia.click` quedó en el dominio vencido | `upload/ConsentModal.tsx` (`CONTACTO_DATOS`) | Actualizar a un correo válido; también difiere del del README |
 | 16 | Pendiente: **sin CI** (no hay `.github/workflows/`); la suite pytest existe pero nada la corre automáticamente | repo | Sin red de seguridad automática |
+| 17 | ✅ **RESUELTO** — endurecimiento de seguridad: límite de resolución (40 MP, corta bombas de descompresión), allowlist de `content_type`, rate limiting por IP con `slowapi`, allowlist de etiquetas contra prompt injection, errores sin detalles internos, `timeout` en el cliente de IA | `skin.py`, `config/rate_limit.py` | Ver AUDITORIA.md A13/A14/A2/A3/A4/A15 |
+| 18 | ✅ **RESUELTO** — el event loop ya no se bloquea: `run_in_threadpool` en la inferencia **y** en las llamadas a los proveedores (el cliente OpenAI es síncrono) | `skin.py` | Concurrencia real |
+| 19 | ✅ **RESUELTO** — deduplicación: `_ModeloKeras` + `_clasificar_*` en el servicio; `data/conditions.py` fuera del controlador | backend | Menos superficie de bugs |
+| 20 | ✅ **AÑADIDO** — `GET /health` con estado por modelo + warmup de modelos en el `startup` (con `threading.Lock`) | `main.py`, servicio | Destraba HEALTHCHECK y monitoreo |
+| 21 | ✅ **RESUELTO** — frontend reestructurado por capas (`api/`, `types/`, `constants/`, `hooks/`, `components/{ui,upload,results}/`); `ImageUploader` 343→76 líneas; las 4 páginas de resultados comparten `ResultadoLayout`; `ErrorBoundary`, `basename` y code splitting. Bundle inicial 218→192 KB | `frontend/src/` | Ver AUDITORIA.md C2/C3/C4/C5/C9/S12 |
 
 ## 6. Convenciones (no romper)
 

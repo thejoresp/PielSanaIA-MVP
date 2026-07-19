@@ -90,6 +90,16 @@ services:
     restart: unless-stopped
     expose:
       - "8080"
+    # --proxy-headers es OBLIGATORIO detrás de Nginx: sin él el rate limiting por IP
+    # (slowapi) ve siempre la dirección del proxy y todos los usuarios comparten cupo.
+    command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8080",
+              "--proxy-headers", "--forwarded-allow-ips", "*"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s   # margen para que carguen los tres modelos TensorFlow
+      retries: 3
 
   nginx:
     image: nginx:alpine
@@ -165,7 +175,7 @@ docker compose up -d --build
 docker compose logs -f backend   # verificar que los modelos cargan
 ```
 
-Probar: `curl https://SUBDOMINIO.duckdns.org/skin/api/condition/acne` → JSON 200.
+Probar: `curl https://SUBDOMINIO.duckdns.org/health` → `{"status":"ok"}` con los tres modelos en `true`.
 
 ---
 
@@ -174,7 +184,7 @@ Probar: `curl https://SUBDOMINIO.duckdns.org/skin/api/condition/acne` → JSON 2
 1. En Vercel: `VITE_API_URL = https://SUBDOMINIO.duckdns.org` → redeploy.
 2. En el `.env` del VPS: `FRONTEND_ORIGINS = https://TU-APP.vercel.app` → `docker compose up -d backend`.
 3. Abrir la app en Vercel y probar el flujo completo (subir imagen → resultado).
-4. Actualizar el email de contacto del modal de consentimiento (`ImageUploader.tsx`),
+4. Actualizar el email de contacto del modal de consentimiento (`components/upload/ConsentModal.tsx`),
    que apunta al dominio vencido `contacto@pielsanaia.click`.
 
 ## Checklist rápido
@@ -186,7 +196,20 @@ Probar: `curl https://SUBDOMINIO.duckdns.org/skin/api/condition/acne` → JSON 2
 - [ ] `.env` con `DEEPSEEK_API_KEY` (+ `OPENAI_API_KEY` opcional)
 - [ ] Certificado Let's Encrypt emitido
 - [ ] `docker compose up -d` → backend en HTTPS
+- [ ] `curl https://SUBDOMINIO.duckdns.org/health` → `{"status":"ok"}` y los tres modelos en `true`
 - [ ] Vercel con `VITE_API_URL` + `VITE_BASE=/`
 - [ ] `FRONTEND_ORIGINS` con la URL de Vercel
 - [ ] Flujo end-to-end probado
 - [ ] Email de contacto actualizado
+
+### Notas de esta configuración
+
+- **`--proxy-headers` no es opcional.** El backend limita por IP con `slowapi`; detrás de Nginx,
+  sin esa bandera, todas las peticiones parecen venir del proxy y comparten un único cupo de
+  20/min. El `command:` del `docker-compose.yml` de arriba ya lo incluye.
+- **`/health` existe** y es a lo que apuntan el `healthcheck` de Compose y los monitores de
+  uptime. Devuelve además el estado de carga de cada `.keras`, así que sirve para confirmar que
+  el `scp` de los modelos salió bien sin tener que subir una imagen de prueba.
+- **`start_period: 120s`** en el healthcheck: los tres modelos TensorFlow se cargan en el
+  arranque (warmup), y eso tarda. Sin ese margen, Compose marca el contenedor como *unhealthy*
+  antes de que termine de levantar.
