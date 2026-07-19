@@ -1,45 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, Thermometer, Sun, Crosshair } from 'lucide-react';
+import { CONDICIONES } from '../data/condiciones';
 
-interface SkinCondition {
-  id: string;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  image: string;
-}
-
-const skinConditions: SkinCondition[] = [
-  {
-    id: 'acne',
-    icon: <AlertCircle className="h-6 w-6" />,
-    title: 'Acné',
-    description: 'El acné es una condición común que ocurre cuando los folículos pilosos se obstruyen con grasa y células muertas de la piel.',
-    image: 'https://images.pexels.com/photos/10004287/pexels-photo-10004287.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-  },
-  {
-    id: 'rosacea',
-    icon: <Thermometer className="h-6 w-6" />,
-    title: 'Rosácea',
-    description: 'La rosácea es una afección crónica que causa enrojecimiento y vasos sanguíneos visibles en la cara.',
-    image: 'https://images.pexels.com/photos/1138531/pexels-photo-1138531.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-  },
-  {
-    id: 'manchas',
-    icon: <Sun className="h-6 w-6" />,
-    title: 'Manchas Solares',
-    description: 'Las manchas solares son áreas de la piel que se oscurecen debido a la exposición al sol.',
-    image: 'https://images.pexels.com/photos/7479603/pexels-photo-7479603.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-  },
-  {
-    id: 'lunares',
-    icon: <Crosshair className="h-6 w-6" />,
-    title: 'Lunares',
-    description: 'Los lunares son áreas pequeñas de pigmentación en la piel. La mayoría son inofensivos, pero es importante monitorearlos.',
-    image: 'https://images.pexels.com/photos/8058606/pexels-photo-8058606.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-  }
-];
+/**
+ * Grilla de condiciones del home. Lee de `data/condiciones.ts`, la misma fuente que
+ * `ConditionInfo`: antes tenía su propio array duplicado con títulos y descripciones.
+ */
+const URL_TURNOS =
+  'https://buenosaires.gob.ar/salud/hospitales-y-establecimientos-de-salud/turnos-en-hospitales-y-establecimientos-de-salud';
 
 const ConditionsOverview: React.FC = () => {
   return (
@@ -47,7 +15,7 @@ const ConditionsOverview: React.FC = () => {
       <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Condiciones Comunes de la Piel</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
-        {skinConditions.map((condition) => (
+        {CONDICIONES.map((condition) => (
           <Link 
             key={condition.id}
             to={`/conditions/${condition.id}`}
@@ -55,19 +23,19 @@ const ConditionsOverview: React.FC = () => {
           >
             <div className="h-48 overflow-hidden">
               <img 
-                src={condition.image} 
-                alt={condition.title}
+                src={condition.imagen}
+                alt={condition.titulo}
                 className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
               />
             </div>
             <div className="p-5">
               <div className="flex items-center mb-2">
                 <div className="text-blue-600 mr-2">
-                  {condition.icon}
+                  <condition.icono className="h-6 w-6" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{condition.title}</h3>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{condition.titulo}</h3>
               </div>
-              <p className="text-gray-600 dark:text-gray-300">{condition.description}</p>
+              <p className="text-gray-600 dark:text-gray-300">{condition.descripcion}</p>
               <div className="mt-4 text-blue-600 font-medium flex items-center">
                 Más información
                 <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -90,7 +58,7 @@ const ConditionsOverview: React.FC = () => {
           Consulta con un dermatólogo profesional para un diagnóstico preciso.
         </p>
         <div className="mt-4 flex justify-center">
-          <button onClick={() => window.open('https://buenosaires.gob.ar/salud/hospitales-y-establecimientos-de-salud/turnos-en-hospitales-y-establecimientos-de-salud', '_blank', 'noopener,noreferrer')} 
+          <button onClick={() => window.open(URL_TURNOS, '_blank', 'noopener,noreferrer')} 
           className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors font-medium">
             Más Info
           </button>

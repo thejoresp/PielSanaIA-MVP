@@ -1,6 +1,6 @@
 import React from 'react';
 import HeroSection from '../components/HeroSection';
-import ImageUploader from '../components/ImageUploader';
+import ImageUploader from '../components/upload/ImageUploader';
 import ConditionsOverview from '../components/ConditionsOverview';
 
 const Home: React.FC = () => {
