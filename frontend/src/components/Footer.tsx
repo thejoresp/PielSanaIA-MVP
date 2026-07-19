@@ -9,7 +9,7 @@ const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center">
-              <img src="/logo.png" alt="Piel Sana IA" className="h-6 w-auto" />
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Piel Sana IA" className="h-6 w-auto" />
               <span className="ml-2 text-lg font-semibold">Piel Sana IA</span>
             </div>
             <p className="mt-2 text-sm text-gray-300">

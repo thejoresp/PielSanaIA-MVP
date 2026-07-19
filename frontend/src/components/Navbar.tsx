@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import DarkModeToggle from '../DarkModeToggle';
+import DarkModeToggle from './ui/DarkModeToggle';
 
 const Navbar: React.FC = () => {
   return (
@@ -9,7 +9,7 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
-              <img src="/logo.png" alt="Piel Sana IA" className="h-8 w-auto" />
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Piel Sana IA" className="h-8 w-auto" />
               <span className="ml-2 text-xl font-semibold text-blue-900 dark:text-gray-100 hidden md:inline">Piel Sana IA</span>
             </Link>
           </div>

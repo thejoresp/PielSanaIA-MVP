@@ -171,6 +171,9 @@ Topología actual:
   un mensaje ya listo para mostrar; renderizarlo con `<BannerError />`, **nunca** con `alert()`.
 - **Clases de Tailwind siempre completas.** Interpolarlas (`bg-${color}-100`) no funciona: el purge
   del build las descarta. Por eso los temas de color son mapas de clases enteras.
+- **Assets referenciados desde JSX van con `import.meta.env.BASE_URL`**, nunca con ruta absoluta
+  (`src="/logo.png"`). Vite reescribe el `index.html` con la `base`, pero **no** las cadenas
+  dentro del JSX: con `VITE_BASE` en subruta esas rutas dan 404.
 - Todo `useEffect` que haga una petición debe cancelarse en el cleanup (flag `cancelado`).
 
 - El código, comentarios, labels y mensajes de la API están en **español**; mantener ese idioma.

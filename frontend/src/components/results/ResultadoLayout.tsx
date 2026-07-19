@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
+import { URL_TURNOS } from '../../constants/enlaces';
 
 /**
  * Carcasa visual de TODAS las páginas de resultados (los tres modelos locales y el de
@@ -33,9 +34,6 @@ const TEMAS: Record<TemaResultado, { panel: string; texto: string }> = {
     texto: 'text-gray-700 dark:text-yellow-100',
   },
 };
-
-const URL_TURNOS =
-  'https://buenosaires.gob.ar/salud/hospitales-y-establecimientos-de-salud/turnos-en-hospitales-y-establecimientos-de-salud';
 
 interface Props {
   titulo: string;

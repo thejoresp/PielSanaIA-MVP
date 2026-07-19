@@ -21,8 +21,8 @@
 
 ## Estado — 2026-07-19
 
-**Resueltos (28):** A1, A2, A3, A4, A5, A6, A7, A8, A9 *(parcial)*, A10, A12, A13, A14, A15,
-B5, C1, C2, C3, C4, C5, C8, C9, C10, C11, C12, C13 *(parcial)*, S9, S12.
+**Resueltos (33):** A1, A2, A3, A4, A5, A6, A7, A8, A9 *(parcial)*, A10, A12, A13, A14, A15,
+B5, C1, C2, C3, C4, C5, C8, C9, C10, C11, C12, C13 *(parcial)*, C14, C15, C16, C17, C18, S9, S12.
 
 ### Qué queda, por prioridad
 
@@ -34,7 +34,8 @@ B5, C1, C2, C3, C4, C5, C8, C9, C10, C11, C12, C13 *(parcial)*, S9, S12.
 | 4 | [B1](#b1) — verificar el preprocesado contra el notebook | Un modelo "que anda pero mal" no se nota desde la app | 1 h |
 | 5 | [B2](#b2) / [B3](#b3) — umbral de confianza y clases malignas | Delicado en una herramienta de salud | 2 h |
 | 6 | [D1](#d1) / [D2](#d2) / [D3](#d3) — `.dockerignore`, multi-stage, HEALTHCHECK | [A7](#a7) ya destrabó el HEALTHCHECK | 1 h |
-| 7 | [S4](#s4) — prerenderizado | Sin esto, [S3](#s3) no se ve en WhatsApp. **Más barato ahora:** con [S9](#s9) resuelto, `/conditions/*` ya renderiza sin backend | 2-3 h |
+| 7 | [C19](#c19) — gh-pages vs Vercel en `package.json` | Dos caminos de deploy conviven; solo uno es el vigente | 10 min |
+| 8 | [S4](#s4) — prerenderizado | Sin esto, [S3](#s3) no se ve en WhatsApp. **Más barato ahora:** con [S9](#s9) resuelto, `/conditions/*` ya renderiza sin backend | 2-3 h |
 
 **Bloqueado por datos del usuario:** [C7](#c7) (email de contacto definitivo), y todo el bloque de
 despliegue de `DESPLIEGUE.md` (subdominio DuckDNS, URL de Vercel → `FRONTEND_ORIGINS`).
@@ -449,6 +450,59 @@ no aparece referenciado en el código— y borrarlo si no.
 ---
 
 ## 5. Infraestructura, repo y procesos
+
+### <a id="c14"></a>🟡 C14 · Assets con ruta absoluta: el logo rompe en subruta
+- [x] Resuelto — `src={`${import.meta.env.BASE_URL}logo.png`}` en `Navbar` y `Footer`
+
+`<img src="/logo.png">` en `Navbar.tsx:12` y `Footer.tsx:12`. Vite reescribe las rutas del
+`index.html` con la `base`, pero **no** las cadenas dentro del JSX. Con
+`VITE_BASE="/PielSanaIA-MVP/"` el ruteo funcionaba (ver [C3](#c3)) pero el logo daba **404**
+en todas las páginas: [C3](#c3) estaba resuelto solo a medias.
+
+Verificado con un build real: `VITE_BASE="/PielSanaIA-MVP/" npm run build` ahora emite
+`/PielSanaIA-MVP/logo.png` en el bundle.
+
+### <a id="c15"></a>⚪ C15 · CSS muerto en `index.css`
+- [x] Resuelto — eliminados `@keyframes pulse` + `.pulse-animation` y `@keyframes slideIn` + `.slide-in`
+
+Ninguna de las dos clases estaba aplicada en ningún componente. ~280 bytes de CSS que se
+enviaban en cada carga.
+
+### <a id="c16"></a>⚪ C16 · `color-scheme: light` con modo oscuro activo
+- [x] Resuelto — `color-scheme: light dark`
+
+`index.css` fijaba `color-scheme: light` mientras la app alterna `html.dark`. Los controles
+nativos (scrollbar, inputs de archivo, selects) seguían renderizándose en claro sobre el tema
+oscuro.
+
+### <a id="c17"></a>⚪ C17 · Constante duplicada y componente fuera de su capa
+- [x] Resuelto — `URL_TURNOS` a `constants/enlaces.ts`; `DarkModeToggle` a `components/ui/`
+
+Residuos de la reestructuración: la URL de turnos quedó definida en `ResultadoLayout.tsx` **y**
+en `ConditionsOverview.tsx`, y `DarkModeToggle.tsx` seguía suelto en la raíz de `src/` mientras
+todo lo demás pasaba a capas.
+
+### <a id="c18"></a>⚪ C18 · `vite-plugin-gh-pages` declarada y nunca importada
+- [x] Resuelto — eliminada de `devDependencies`
+
+No aparece en `vite.config.ts` ni en ningún otro archivo. **Ver [C19](#c19)**: el script
+`npm run deploy` (gh-pages) sí sigue existiendo.
+
+### <a id="c19"></a>🟡 C19 · El script de deploy contradice el plan de despliegue
+- [ ] Resuelto
+
+`package.json` mantiene `"deploy": "gh-pages -d dist"` y `CLAUDE.md` lo documenta, pero
+`DESPLIEGUE.md` define **Vercel** como destino del frontend. Conviven dos caminos y solo uno es
+el vigente. Decidir: si se va a Vercel, borrar el script y la dependencia `gh-pages`.
+
+### <a id="c20"></a>⚪ C20 · El toggle de tema ignora `prefers-color-scheme` tras el primer render
+- [ ] Resuelto
+
+`DarkModeToggle` inicializa desde `prefers-color-scheme`, pero su `useEffect` escribe
+`localStorage` en el montaje inicial. Desde ese momento la preferencia del sistema queda
+congelada: si el usuario nunca tocó el botón y cambia el tema del SO, la app no acompaña.
+Solo debería persistir ante una acción explícita del usuario.
+
 
 ### <a id="d1"></a>🟡 D1 · Sin `.dockerignore`
 - [ ] Resuelto

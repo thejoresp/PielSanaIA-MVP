@@ -1,14 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { CONDICIONES } from '../data/condiciones';
+import { URL_TURNOS } from '../constants/enlaces';
 
 /**
  * Grilla de condiciones del home. Lee de `data/condiciones.ts`, la misma fuente que
  * `ConditionInfo`: antes tenía su propio array duplicado con títulos y descripciones.
  */
-const URL_TURNOS =
-  'https://buenosaires.gob.ar/salud/hospitales-y-establecimientos-de-salud/turnos-en-hospitales-y-establecimientos-de-salud';
-
 const ConditionsOverview: React.FC = () => {
   return (
     <div className="py-10">
