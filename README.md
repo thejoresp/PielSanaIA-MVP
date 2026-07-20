@@ -57,10 +57,10 @@ PielSanaIA-MVP/
 │   ├── src/
 │   │   ├── api/               ← client.ts (URL base, ApiError) + skin.ts (un fn por endpoint)
 │   │   ├── types/             ← formas de las respuestas del backend
-│   │   ├── constants/         ← catálogo de tipos de análisis
+│   │   ├── constants/         ← catálogo de tipos de análisis, enlaces externos
 │   │   ├── hooks/             ← useAnalisisImagen (estado del flujo de subida)
 │   │   ├── components/
-│   │   │   ├── ui/            ← Spinner, BannerError
+│   │   │   ├── ui/            ← Spinner, BannerError, DarkModeToggle
 │   │   │   ├── upload/        ← ImageUploader, ConsentModal, ZonaDeSubida...
 │   │   │   └── results/       ← ResultadoLayout (compartido por las 4 páginas)
 │   │   └── pages/             ← una por ruta

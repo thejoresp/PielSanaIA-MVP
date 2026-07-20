@@ -31,9 +31,9 @@ Monorepo con dos servicios independientes:
   | `src/api/` | `client.ts` (URL base, `ApiError`, mensajes por código HTTP) y `skin.ts` (una función por endpoint). **Ningún componente hace `fetch` directo.** |
   | `src/types/` | Formas de las respuestas del backend (`AnalisisResultado`, `VisionResultado`…). |
   | `src/data/` | **Contenido estático** que no depende del backend: `condiciones.ts` (las 4 fichas de condiciones). |
-  | `src/constants/` | `analisis.ts`: catálogo de tipos de análisis (clave, etiqueta, endpoint, ruta). |
+  | `src/constants/` | `analisis.ts` (catálogo de tipos de análisis: clave, etiqueta, endpoint, ruta) y `enlaces.ts` (URLs externas compartidas). |
   | `src/hooks/` | `useAnalisisImagen.ts`: todo el estado del flujo de subida y análisis. |
-  | `src/components/ui/` | Piezas genéricas (`Spinner`, `BannerError`). |
+  | `src/components/ui/` | Piezas genéricas y transversales (`Spinner`, `BannerError`, `DarkModeToggle`). |
   | `src/components/upload/` | Flujo de subida: `ImageUploader` (compone), `ConsentModal`, `SelectorTipoAnalisis`, `ZonaDeSubida`, `VistaPreviaImagen`. |
   | `src/components/results/` | `ResultadoLayout` (carcasa visual de las 4 páginas de resultados), `ResultadoModeloLocal` (lunares/acné/rosácea), `SinResultado`. |
   | `src/pages/` | Una por ruta; las de resultados son wrappers de ~7 líneas. |

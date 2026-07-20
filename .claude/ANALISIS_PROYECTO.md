@@ -72,7 +72,9 @@ Backend (FastAPI, EC2, HTTP :8080)
   `results-rosacea`, `results-openai`, `conditions/:condition`, `about`. Todas salvo `Home` van
   con `React.lazy`. `BrowserRouter` usa `basename={import.meta.env.BASE_URL}`.
 - **Organizado por capas** (ver la tabla en `CLAUDE.md`): `api/` · `types/` · `constants/` ·
-  `hooks/` · `components/{ui,upload,results}/` · `pages/`.
+  `hooks/` · `data/` · `components/{ui,upload,results}/` · `pages/`.
+- **Assets desde JSX con `import.meta.env.BASE_URL`**, nunca ruta absoluta: Vite reescribe el
+  `index.html` con la `base` pero no las cadenas del JSX (daba 404 en subruta).
 - **Ningún componente hace `fetch`**: todo pasa por `api/skin.ts`, y `api/client.ts` traduce los
   errores a un `ApiError` con mensaje listo para mostrar (incluye 429 del rate limiting).
   Se renderiza con `<BannerError />`; ya no hay `alert()`.
@@ -126,7 +128,10 @@ Backend (FastAPI, EC2, HTTP :8080)
 | 18 | ✅ **RESUELTO** — el event loop ya no se bloquea: `run_in_threadpool` en la inferencia **y** en las llamadas a los proveedores (el cliente OpenAI es síncrono) | `skin.py` | Concurrencia real |
 | 19 | ✅ **RESUELTO** — deduplicación: `_ModeloKeras` + `_clasificar_*` en el servicio; `data/conditions.py` fuera del controlador | backend | Menos superficie de bugs |
 | 20 | ✅ **AÑADIDO** — `GET /health` con estado por modelo + warmup de modelos en el `startup` (con `threading.Lock`) | `main.py`, servicio | Destraba HEALTHCHECK y monitoreo |
-| 21 | ✅ **RESUELTO** — frontend reestructurado por capas (`api/`, `types/`, `constants/`, `hooks/`, `components/{ui,upload,results}/`); `ImageUploader` 343→76 líneas; las 4 páginas de resultados comparten `ResultadoLayout`; `ErrorBoundary`, `basename` y code splitting. Bundle inicial 218→192 KB | `frontend/src/` | Ver AUDITORIA.md C2/C3/C4/C5/C9/S12 |
+| 21 | ✅ **RESUELTO** — frontend reestructurado por capas (`api/`, `types/`, `constants/`, `hooks/`, `data/`, `components/{ui,upload,results}/`); `ImageUploader` 343→76 líneas; las 4 páginas de resultados comparten `ResultadoLayout`; `ErrorBoundary`, `basename` y code splitting. Bundle inicial 218→186 KB | `frontend/src/` | Ver AUDITORIA.md C2/C3/C4/C5/C9/S12 |
+| 22 | ✅ **RESUELTO** — auditoría posterior al refactor: logo con ruta absoluta (404 en subruta, dejaba [C3] a medias), CSS muerto, `color-scheme` fijo en light, `URL_TURNOS` duplicada, `DarkModeToggle` fuera de su capa, dependencia sin usar | `frontend/src/` | Ver AUDITORIA.md C14-C18 |
+| 23 | Pendiente: **dos caminos de deploy** — `package.json` mantiene `gh-pages` mientras `DESPLIEGUE.md` define Vercel | `package.json` | Ver AUDITORIA.md C19 |
+| 24 | Pendiente: el toggle de tema **congela `prefers-color-scheme`** al persistir en el montaje inicial | `ui/DarkModeToggle.tsx` | Ver AUDITORIA.md C20 |
 
 ## 6. Convenciones (no romper)
 
