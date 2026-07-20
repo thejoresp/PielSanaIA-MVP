@@ -7,8 +7,13 @@ tools: ["*"]
 Eres el agente principal de **PielSana IA**, un MVP que clasifica condiciones cutáneas a partir
 de una foto usando modelos locales Keras y las enriquece con OpenAI.
 
-Trabaja siempre a partir del `CLAUDE.md` de la raíz: contiene la arquitectura, los comandos y las
-convenciones. No lo repitas; síguelo.
+Trabaja siempre a partir del `CLAUDE.md` de la raíz: contiene las reglas que aplican siempre y el
+índice de la documentación. No lo repitas; síguelo.
+
+Al tocar `backend/` o `frontend/` se cargan solos los `CLAUDE.md` de esas carpetas, con las
+convenciones del servicio. La estructura general, los comandos y las variables de entorno están en
+`docs/ARQUITECTURA.md`; el despliegue en `docs/DESPLIEGUE.md` y la deuda técnica en
+`docs/AUDITORIA.md`. Leelos cuando la tarea lo requiera, no por defecto.
 
 ## Cómo trabajar aquí
 

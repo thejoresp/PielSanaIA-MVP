@@ -4,9 +4,9 @@
 > (commit `742a2dc`). Se revisó el 100% del backend (7 archivos Python), el 100% del frontend
 > (`src/` + configuración) y la infraestructura versionada.
 >
-> Complementa `CLAUDE.md` (guía de arquitectura) y `.claude/ANALISIS_PROYECTO.md` (contexto).
-> Este documento es la **lista de trabajo pendiente**: marcar los checkboxes al resolver cada
-> punto y anotar el commit correspondiente.
+> Complementa `CLAUDE.md` (raíz) y `docs/ARQUITECTURA.md` (arquitectura). Este documento es la
+> **única lista de trabajo pendiente** del proyecto: marcar los checkboxes al resolver cada punto
+> y anotar el commit correspondiente.
 
 **Severidades:** 🔴 rompe la app, filtra datos o cuesta dinero · 🟡 degrada calidad/mantenibilidad ·
 ⚪ cosmético o limpieza.

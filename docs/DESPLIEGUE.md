@@ -21,6 +21,20 @@ Hetzner VPS  →  Nginx (443, TLS Let's Encrypt)  →  backend FastAPI (:8080, D
 El orden importa por el CORS: primero el backend con su URL HTTPS, después Vercel, y al final
 se completa `FRONTEND_ORIGINS` con la URL final de Vercel.
 
+### De dónde se migra (estado actual, a dar de baja)
+
+Hasta completar lo de arriba, producción sigue corriendo en **AWS**, y es lo que hay que tocar si
+algo se rompe hoy:
+
+- **Backend:** EC2 **Ubuntu 22.04 `t2.micro`** con IP elástica `54.82.199.243`, backend en Docker
+  sobre el puerto `8080` (HTTP, sin TLS — de ahí el *mixed content*).
+- **Acceso:** SSH con `connect_aws.sh`, que usa la clave **`vockey.pem`** (no versionada).
+- **Scripts:** `infra.sh` (VPC, subred, IGW, security group 22/53/80/8080, EC2 + IP elástica),
+  `dockerUbuntu.txt` (user-data que instala Docker), `reboot_backend.sh` (rebuild + run),
+  `nginx_manager.sh` (reverse proxy). Su destino tras la migración está en [D6](AUDITORIA.md#d6).
+- **Frontend:** `npm run deploy` (gh-pages → GitHub Pages). Contradice esta guía; ver
+  [C19](AUDITORIA.md#c19).
+
 ---
 
 ## 1. Frontend — Vercel

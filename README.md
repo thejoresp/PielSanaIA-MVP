@@ -49,39 +49,14 @@ De esta forma, pasamos de una simple herramienta de detección a un **asistente 
 
 ---
 
-## Estructura del Monorepo
+## Documentación
 
-```
-PielSanaIA-MVP/
-├── frontend/                  ← React 18 + TS + Vite + Tailwind
-│   ├── src/
-│   │   ├── api/               ← client.ts (URL base, ApiError) + skin.ts (un fn por endpoint)
-│   │   ├── types/             ← formas de las respuestas del backend
-│   │   ├── constants/         ← catálogo de tipos de análisis, enlaces externos
-│   │   ├── hooks/             ← useAnalisisImagen (estado del flujo de subida)
-│   │   ├── components/
-│   │   │   ├── ui/            ← Spinner, BannerError, DarkModeToggle
-│   │   │   ├── upload/        ← ImageUploader, ConsentModal, ZonaDeSubida...
-│   │   │   └── results/       ← ResultadoLayout (compartido por las 4 páginas)
-│   │   └── pages/             ← una por ruta
-│   ├── public/
-│   └── vite.config.ts
-├── backend/                   ← FastAPI + modelos locales
-│   ├── main.py                ← app, CORS, rate limiter, warmup, /health
-│   ├── controllers/           ← endpoints
-│   ├── services/              ← carga de modelos y predicción
-│   ├── data/                  ← fichas estáticas de condiciones
-│   ├── config/                ← rutas de modelos, rate limit
-│   ├── models/                ← esquemas Pydantic
-│   ├── tests/                 ← pytest (modelos mockeados)
-│   ├── modelos/               ← los .keras (NO versionados)
-│   ├── Dockerfile
-│   └── requirements.txt
-├── AUDITORIA.md               ← deuda técnica con checkboxes
-├── CLAUDE.md                  ← guía de arquitectura
-├── DESPLIEGUE.md              ← guía de despliegue vigente
-└── README.md
-```
+| Documento | Contiene |
+|---|---|
+| [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) | Estructura del monorepo, comandos y variables de entorno |
+| [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md) | Guía de despliegue vigente (Vercel + VPS con HTTPS) |
+| [`docs/AUDITORIA.md`](docs/AUDITORIA.md) | Deuda técnica: hallazgos numerados con checkboxes |
+| [`CLAUDE.md`](CLAUDE.md) | Índice y reglas para agentes de IA que trabajen en el repo |
 
 ---
 
@@ -114,13 +89,12 @@ PielSanaIA-MVP/
 - [PielSana IA](#pielsana-ia)
   - [Cuidando tu piel con inteligencia artificial](#cuidando-tu-piel-con-inteligencia-artificial)
   - [¿Cómo funciona PielSana IA?](#cómo-funciona-pielsana-ia)
-  - [Estructura del Monorepo](#estructura-del-monorepo)
+  - [Documentación](#documentación)
   - [Casos de Uso](#casos-de-uso)
     - [Principales Condiciones Cutáneas Analizadas](#principales-condiciones-cutáneas-analizadas)
   - [¿Quién puede usarlo?](#quién-puede-usarlo)
   - [Tabla de Contenido](#tabla-de-contenido)
   - [Características Técnicas](#características-técnicas)
-  - [Tabla de Tecnologías](#tabla-de-tecnologías)
   - [Diagrama de Arquitectura](#diagrama-de-arquitectura)
   - [Capturas de Pantalla / GIF de Uso](#capturas-de-pantalla--gif-de-uso)
   - [Instalación y Uso](#instalación-y-uso)
@@ -155,25 +129,23 @@ PielSana IA combina lo último en inteligencia artificial y desarrollo web para 
 - **Privacidad:** Procesamiento temporal de imágenes, sin almacenamiento de datos personales.
 - **Extensibilidad:** Arquitectura modular que permite agregar nuevos modelos y funcionalidades fácilmente.
 
-## Tabla de Tecnologías
-
-| Capa         | Tecnología                                 |
-|--------------|--------------------------------------------|
-| Frontend     | React, Vite, TypeScript, TailwindCSS       |
-| Backend      | FastAPI, Python, TensorFlow, Keras, DeepSeek API, OpenAI API (visión) |
-| Modelos      | Modelos locales (ej: lunares.keras, otros) |
-| Infraestructura | Docker, .env            |
-
 ## Diagrama de Arquitectura
 
 ```mermaid
 flowchart TD
-    Usuario -->|Carga imagen| Frontend
-    Frontend -->|Envía imagen| Backend
-    Backend -->|Procesa| ModeloLocal
-    ModeloLocal -->|Resultado| Backend
-    Backend -->|Resultados| Frontend
+    Usuario -->|Sube una foto| Frontend["Frontend — React SPA (HTTPS)"]
+    Frontend -->|"POST ${VITE_API_URL}/skin/..."| Backend["Backend — FastAPI"]
+    Backend -->|Clasificación| Modelos["Modelos locales Keras/TensorFlow (CPU)"]
+    Backend -->|Descripción y recomendaciones| DeepSeek["DeepSeek · texto"]
+    Backend -.->|Detección desde la imagen · opcional| OpenAI["OpenAI gpt-4o · visión"]
+    Modelos --> Backend
+    DeepSeek --> Backend
+    Backend -->|JSON| Frontend
 ```
+
+Los dos servicios son independientes y se comunican **solo por HTTP**; el backend nunca devuelve
+HTML. El endpoint de visión es opcional: sin `OPENAI_API_KEY` responde 503 y el resto sigue
+funcionando con DeepSeek.
 
 ## Capturas de Pantalla / GIF de Uso
 
@@ -193,14 +165,17 @@ flowchart TD
 ### Backend
 
 ```bash
-cd backend
+# Desde la raíz del repo — el paquete es backend.main, no se entra a backend/
 python3.10 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
-python main.py
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 La API estará disponible en http://localhost:8080
+
+> Los `.keras` **no están versionados**: sin ellos los endpoints de predicción responden 500.
+> Copiarlos a `backend/modelos/{ham10000,acne,rosacea}/`.
 
 ### Frontend
 
@@ -257,7 +232,7 @@ Luego cierra y vuelve a abrir la sesión para que los cambios tengan efecto.
 
 ## Despliegue en producción
 
-> **Guía vigente: [`DESPLIEGUE.md`](DESPLIEGUE.md)** — frontend en **Vercel**, backend en un
+> **Guía vigente: [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md)** — frontend en **Vercel**, backend en un
 > **VPS Hetzner** con Nginx + DuckDNS + Let's Encrypt (HTTPS).
 
 Las instrucciones de **EC2 + ngrok** que estaban en esta sección quedaron obsoletas: eran de una
@@ -324,7 +299,7 @@ Este proyecto procesa imágenes de manera temporal y no almacena datos personale
 
 > ⚠️ **Pendiente:** la app trata **datos biométricos sensibles** y cita la Ley 25.326 en su modal
 > de consentimiento, pero todavía **no tiene publicada una política de privacidad**. Es el hueco
-> legal más visible del proyecto (ítem C6 de [`AUDITORIA.md`](AUDITORIA.md)).
+> legal más visible del proyecto (ítem C6 de [`docs/AUDITORIA.md`](docs/AUDITORIA.md)).
 
 ---
 
@@ -366,4 +341,4 @@ Para consultas o colaboración, contacta a:
 > 
 > El frontend se sirve por HTTPS, así que el backend **también** tiene que estar detrás de HTTPS:
 > un navegador bloquea las llamadas HTTPS→HTTP (*mixed content*). El plan vigente resuelve esto con
-> DuckDNS + Let's Encrypt en el VPS; ver [`DESPLIEGUE.md`](DESPLIEGUE.md).
+> DuckDNS + Let's Encrypt en el VPS; ver [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).
