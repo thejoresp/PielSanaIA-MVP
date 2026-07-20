@@ -302,13 +302,15 @@ sensibles** y cita la Ley 25.326 en el modal de consentimiento: no tener la pol�
 es el hueco legal más visible. Debería ser una ruta real `/privacidad`.
 
 ### <a id="c7"></a>🟡 C7 · Datos de contacto falsos o muertos en producción
-- [ ] Resuelto · **Bloqueado: falta definir el email**
+- [x] Resuelto
 
-- `contacto@pielsanaia.click` — dominio **vencido**, aparece en `Footer.tsx:46` y en
-  `components/upload/ConsentModal.tsx` (constante `CONTACTO_DATOS`). El del modal es el canal
-  legal para ejercer derechos ARCO
-  (acceso, rectificación, cancelación, oposición): tiene que funcionar de verdad.
-- `+54 123 456 789` (`Footer.tsx:50`) — teléfono placeholder visible en producción.
+El contacto es ahora **`thejoresp@gmail.com`**, unificado en los tres lugares donde aparecía algo
+distinto: el footer, la constante `CONTACTO_DATOS` de `components/upload/ConsentModal.tsx` (el canal
+legal para ejercer los derechos ARCO) y el README. Se eliminó el teléfono placeholder
+`+54 123 456 789` del footer, que era visible en producción.
+
+El dominio `pielsanaia.click` venció y no se renueva: ya no queda ninguna referencia a él en el
+código ni en la documentación.
 
 ### <a id="c8"></a>⚪ C8 · `console.log` en producción
 - [x] Resuelto
@@ -542,7 +544,7 @@ configuración de CORS.
 
 `infra.sh`, `connect_aws.sh`, `nginx_manager.sh`, `reboot_backend.sh`, `dockerUbuntu.txt` y
 `backend/datosusuarioUbuntu.txt` (este último, un duplicado casi idéntico de `dockerUbuntu.txt`).
-Si se migra a Hetzner, mover a `infra/aws-legacy/` o eliminar.
+Al migrar al VPS, mover a `infra/aws-legacy/` o eliminar.
 
 > Contenido revisado en la auditoría: **no contienen secretos**, son solo scripts de instalación
 > de Docker.
@@ -556,15 +558,17 @@ como archivos reales para que sean reproducibles y revisables.
 ### <a id="d8"></a>⚪ D8 · `README.md` desactualizado
 - [ ] Resuelto
 
-Documenta una arquitectura que ya no existe y confunde a cualquiera que llegue al repo:
+Ya se corrigieron: las instrucciones de despliegue con **EC2 + ngrok**, el arranque del backend
+(`cd backend && python main.py`, que no funciona porque el paquete es `backend.main` desde la raíz),
+el árbol del monorepo y la tabla de tecnologías (duplicaban `ARQUITECTURA.md`), el párrafo de
+privacidad repetido, el *"Próximamente: rosácea y acné"* de modelos que ya existen y el contacto,
+hoy unificado en [C7](#c7).
 
-- Despliegue con **EC2 + ngrok** (líneas 204-279), cuando el plan actual es Hetzner + DuckDNS.
-- *"Análisis Inteligente con **OpenAI**"* (línea 32) — el proveedor de texto hoy es DeepSeek.
-- *"**Próximamente:** modelos específicos para rosácea y acné"* (línea 357) — ya existen.
-- *"se recomienda agregar una política de privacidad detallada"* (línea 331) — es el mismo hueco
-  de [C6](#c6), reconocido en el propio README.
-- Contacto `yorluis@hotmail.com` (línea 347), distinto del `contacto@pielsanaia.click` del footer
-  y del modal. **Unificar los tres** — se relaciona con [C7](#c7).
+Queda pendiente: el README sigue diciendo que *"se recomienda agregar una política de privacidad
+detallada"*, que es el mismo hueco de [C6](#c6).
+
+> Sin números de línea a propósito: los anteriores quedaron desfasados al editar el README y
+> mandaban a revisar cosas que ya no estaban.
 
 ### <a id="d9"></a>🔴 D9 · Datos biométricos de salud viajando en HTTP plano
 - [ ] Resuelto
@@ -583,7 +587,7 @@ Se resuelve con el despliegue pendiente (DuckDNS + Let's Encrypt, sección 6).
 Detalle completo en [`DESPLIEGUE.md`](DESPLIEGUE.md). Bloqueantes para tener el MVP online
 (ver también [D9](#d9) — hoy el tráfico sensible va sin TLS):
 
-- [ ] Contratar el VPS (Hetzner CX22) y levantar Docker Compose + Nginx + Let's Encrypt.
+- [ ] Contratar el VPS (Contabo o Hetzner, 2 vCPU / 4 GB) y levantar Docker Compose + Nginx + Let's Encrypt.
 - [ ] Crear el subdominio **DuckDNS** → define `VITE_API_URL`.
 - [ ] Desplegar el frontend en **Vercel** → su URL define `FRONTEND_ORIGINS` en el backend.
 - [ ] Copiar los tres `.keras` al servidor (`backend/modelos/{ham10000,acne,rosacea}/`);

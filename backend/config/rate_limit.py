@@ -9,7 +9,7 @@ limit es la única barrera real contra el abuso de CPU (modelos) y de tokens pag
 
 ⚠️ Detrás de Nginx, `get_remote_address` ve la IP del proxy y no la del cliente, con lo
    que todos los usuarios comparten el mismo cupo. Correr uvicorn con `--proxy-headers`
-   y que Nginx mande `X-Forwarded-For` (ver DESPLIEGUE.md).
+   y que Nginx mande `X-Forwarded-For` (ver docs/DESPLIEGUE.md).
 """
 from slowapi import Limiter
 from slowapi.util import get_remote_address

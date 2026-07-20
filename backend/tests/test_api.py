@@ -40,7 +40,7 @@ def test_raiz_no_redirige_a_un_404():
 
 # --- Info de condiciones ---
 # El endpoint `/skin/api/condition/{nombre}` se eliminó: ese contenido es estático y
-# ahora vive en el frontend (`src/data/condiciones.ts`). Ver S9 en AUDITORIA.md.
+# ahora vive en el frontend (`src/data/condiciones.ts`). Ver S9 en docs/AUDITORIA.md.
 
 
 # --- Validación de subida (leer_imagen_validada) ---

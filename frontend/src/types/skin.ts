@@ -6,7 +6,7 @@ export interface AnalisisResultado {
   content_type: string;
   /** Etiqueta legible en español, p. ej. "Melanoma" o "Con acné". */
   prediccion: string;
-  /** Probabilidad por etiqueta. Hoy el frontend no la muestra (ver B4 en AUDITORIA.md). */
+  /** Probabilidad por etiqueta. Hoy el frontend no la muestra (ver B4 en docs/AUDITORIA.md). */
   probabilidades: Record<string, number>;
 }
 

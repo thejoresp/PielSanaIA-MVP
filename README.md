@@ -25,8 +25,6 @@ Nuestra plataforma ayuda a detectar y monitorear condiciones cutáneas frecuente
 
 > **Privacidad:** Tus imágenes se procesan de forma temporal y se eliminan tras el análisis. No almacenamos datos personales.
 
-> **Privacidad:** Tus imágenes se procesan de forma temporal y se eliminan tras el análisis. No almacenamos datos personales.
-
 ---
 
 ## Análisis Inteligente con LLMs 🧠✨
@@ -233,11 +231,7 @@ Luego cierra y vuelve a abrir la sesión para que los cambios tengan efecto.
 ## Despliegue en producción
 
 > **Guía vigente: [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md)** — frontend en **Vercel**, backend en un
-> **VPS Hetzner** con Nginx + DuckDNS + Let's Encrypt (HTTPS).
-
-Las instrucciones de **EC2 + ngrok** que estaban en esta sección quedaron obsoletas: eran de una
-etapa anterior del proyecto y ya no reflejan la topología. El dominio propio `pielsanaia.click`
-venció y no se renovará.
+> **VPS** (Contabo o Hetzner, a definir) con Nginx + DuckDNS + Let's Encrypt (HTTPS).
 
 Estado de salud del servicio: `GET /health` devuelve `{status, version, modelos}`, con el estado
 de carga de cada modelo `.keras`.
@@ -315,7 +309,7 @@ Haz un fork, crea tu rama, realiza tus cambios y abre un Pull Request. ¡Toda ay
 Este proyecto está bajo licencia MIT.
 Para consultas o colaboración, contacta a:
 - Nombre: [Jorge Espinola]
-- Email: [yorluis@hotmail.com]
+- Email: [thejoresp@gmail.com](mailto:thejoresp@gmail.com)
 - GitHub: [github.com/thejoresp]
 
 ---

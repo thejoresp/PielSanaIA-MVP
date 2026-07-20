@@ -4,10 +4,10 @@ import React, { useState } from 'react';
  * Consentimiento informado (Ley N.º 25.326) previo al análisis.
  *
  * ⚠️ El texto y el correo de contacto tienen valor legal: es el canal por el que se
- * ejercen los derechos ARCO. No cambiarlos sin revisar `AUDITORIA.md` (C6, C7).
+ * ejercen los derechos ARCO. No cambiarlos sin revisar `docs/AUDITORIA.md` (C6, C7).
  */
 
-const CONTACTO_DATOS = 'contacto@pielsanaia.click';
+const CONTACTO_DATOS = 'thejoresp@gmail.com';
 
 interface Props {
   onAccept: () => void;

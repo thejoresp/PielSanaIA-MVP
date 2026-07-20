@@ -1,6 +1,6 @@
 # Despliegue de PielSana IA
 
-Guía de despliegue. **Frontend en Vercel**, **backend en un VPS (Hetzner)** detrás de HTTPS.
+Guía de despliegue. **Frontend en Vercel**, **backend en un VPS** (Contabo o Hetzner, a definir) detrás de HTTPS.
 
 > Los bloques de `docker-compose.yml` y Nginx de acá son **documentación** para copiar al
 > servidor; no son archivos versionados del repo. Ajustá los placeholders
@@ -12,7 +12,7 @@ Guía de despliegue. **Frontend en Vercel**, **backend en un VPS (Hetzner)** det
 Vercel (frontend React/Vite, HTTPS)
    │  fetch  ${VITE_API_URL}/skin/...
    ▼
-Hetzner VPS  →  Nginx (443, TLS Let's Encrypt)  →  backend FastAPI (:8080, Docker)
+VPS          →  Nginx (443, TLS Let's Encrypt)  →  backend FastAPI (:8080, Docker)
                                                      ├── modelos Keras (CPU)
                                                      ├── DeepSeek  (texto)
                                                      └── OpenAI gpt-4o (visión, opcional)
@@ -52,11 +52,16 @@ algo se rompe hoy:
 
 ---
 
-## 2. Backend — Hetzner VPS
+## 2. Backend — VPS
 
 ### 2.1 Provisionar el VPS
-- **Hetzner Cloud CX22** (2 vCPU, 4 GB RAM) — 4 GB para que TensorFlow cargue los 3 modelos sin ahogarse.
-- Imagen **Ubuntu 24.04**, ubicación **Ashburn (US)** si el público es de Argentina.
+
+**Proveedor a definir: Contabo o Hetzner.** Lo que sigue no depende de cuál se elija; lo único
+que importa es el tamaño y la imagen:
+
+- **Mínimo 2 vCPU y 4 GB de RAM** — los 4 GB son el requisito real: con menos, TensorFlow no
+  carga los tres modelos sin ahogarse. Equivalen a un **Hetzner CX22** o un **Contabo VPS 1**.
+- Imagen **Ubuntu 24.04**, ubicación cercana al público (para Argentina, este de EE.UU.).
 - Subir tu **clave SSH** al crear el server.
 
 ### 2.2 DNS / HTTPS gratis con DuckDNS
@@ -198,12 +203,12 @@ Probar: `curl https://SUBDOMINIO.duckdns.org/health` → `{"status":"ok"}` con l
 1. En Vercel: `VITE_API_URL = https://SUBDOMINIO.duckdns.org` → redeploy.
 2. En el `.env` del VPS: `FRONTEND_ORIGINS = https://TU-APP.vercel.app` → `docker compose up -d backend`.
 3. Abrir la app en Vercel y probar el flujo completo (subir imagen → resultado).
-4. Actualizar el email de contacto del modal de consentimiento (`components/upload/ConsentModal.tsx`),
-   que apunta al dominio vencido `contacto@pielsanaia.click`.
+4. Publicar la política de privacidad en una ruta real `/privacidad`: es el hueco legal
+   pendiente ([C6](AUDITORIA.md#c6)) y el footer ya la enlaza.
 
 ## Checklist rápido
 
-- [ ] VPS Hetzner CX22 (Ubuntu, SSH key)
+- [ ] VPS contratado: 2 vCPU / 4 GB, Ubuntu, SSH key
 - [ ] Subdominio DuckDNS → IP del VPS
 - [ ] Docker + Compose instalados
 - [ ] Modelos `.keras` copiados por `scp`

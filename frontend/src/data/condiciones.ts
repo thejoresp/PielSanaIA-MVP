@@ -12,7 +12,7 @@ import { AlertCircle, Thermometer, Sun, Crosshair, type LucideIcon } from 'lucid
  *   Es contenido educativo, no depende de ningún modelo.
  * - **Velocidad:** se renderiza sin esperar una petición de red.
  * - **SEO:** son las páginas con más contenido real del proyecto y ahora son prerenderizables
- *   (ver S4/S9 en `AUDITORIA.md`).
+ *   (ver S4/S9 en `docs/AUDITORIA.md`).
  *
  * El backend ya **no** expone este contenido: esta es la única fuente de verdad.
  */
