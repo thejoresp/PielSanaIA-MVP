@@ -29,16 +29,15 @@ B5, C1, C2, C3, C4, C5, C8, C9, C10, C11, C12, C13 *(parcial)*, C14, C15, C16, C
 | Orden | Ítem | Por qué | Esfuerzo |
 |-------|------|---------|----------|
 | 1 | [S1](#s1) / [S2](#s2) / [S3](#s3) — `<head>` del `index.html` | Cambia cómo se ve la app compartida por WhatsApp | 30 min |
-| 2 | [C6](#c6) / [C7](#c7) — política de privacidad + contacto real | Hueco legal (Ley 25.326, datos sensibles) | 2 h |
-| 3 | [D4](#d4) — CI | Los tests existen y no los corre nadie | 30 min |
-| 4 | [B1](#b1) — verificar el preprocesado contra el notebook | Un modelo "que anda pero mal" no se nota desde la app | 1 h |
-| 5 | [B2](#b2) / [B3](#b3) — umbral de confianza y clases malignas | Delicado en una herramienta de salud | 2 h |
-| 6 | [D1](#d1) / [D2](#d2) / [D3](#d3) — `.dockerignore`, multi-stage, HEALTHCHECK | [A7](#a7) ya destrabó el HEALTHCHECK | 1 h |
-| 7 | [C19](#c19) — gh-pages vs Vercel en `package.json` | Dos caminos de deploy conviven; solo uno es el vigente | 10 min |
-| 8 | [S4](#s4) — prerenderizado | Sin esto, [S3](#s3) no se ve en WhatsApp. **Más barato ahora:** con [S9](#s9) resuelto, `/conditions/*` ya renderiza sin backend | 2-3 h |
+| 2 | [C6](#c6) — política de privacidad en una ruta real | Hueco legal (Ley 25.326, datos sensibles); [C7](#c7) ya se resolvió | 1 h |
+| 3 | [B1](#b1) — verificar el preprocesado contra el notebook | Un modelo "que anda pero mal" no se nota desde la app | 1 h |
+| 4 | [B2](#b2) / [B3](#b3) — umbral de confianza y clases malignas | Delicado en una herramienta de salud | 2 h |
+| 5 | [D1](#d1) / [D2](#d2) / [D3](#d3) — `.dockerignore`, multi-stage, HEALTHCHECK | [A7](#a7) ya destrabó el HEALTHCHECK | 1 h |
+| 6 | [C19](#c19) — gh-pages vs Vercel en `package.json` | Dos caminos de deploy conviven; solo uno es el vigente | 10 min |
+| 7 | [S4](#s4) — prerenderizado | Sin esto, [S3](#s3) no se ve en WhatsApp. **Más barato ahora:** con [S9](#s9) resuelto, `/conditions/*` ya renderiza sin backend | 2-3 h |
 
-**Bloqueado por datos del usuario:** [C7](#c7) (email de contacto definitivo), y todo el bloque de
-despliegue de `DESPLIEGUE.md` (subdominio DuckDNS, URL de Vercel → `FRONTEND_ORIGINS`).
+**Bloqueado por datos del usuario:** el bloque de despliegue de `DESPLIEGUE.md` (proveedor del VPS,
+subdominio DuckDNS, URL de Vercel → `FRONTEND_ORIGINS`).
 
 ### Verificación de esta tanda
 
@@ -51,9 +50,10 @@ despliegue de `DESPLIEGUE.md` (subdominio DuckDNS, URL de Vercel → `FRONTEND_O
   [S9](#s9): antes esa página quedaba vacía sin API.
 - ✅ [A13](#a13) confirmado empíricamente con Pillow: un PNG 8000×8000 pesa **193 KB**, pasa el
   filtro de 8 MB y `verify()` no lo detecta.
-- ⚠️ **`pytest` NO se ejecutó**: no hay venv en el repo y el Python del sistema es 3.13, donde
-  TensorFlow 2.19 no tiene wheels. Los tests nuevos (bomba de descompresión, `content_type`,
-  prompt injection, `/health`) están **sin correr**. Ver [D4](#d4).
+- ⚠️ **`pytest` no se ejecutó en local**: no hay venv en el repo y el Python del sistema es 3.13,
+  donde TensorFlow 2.19 no tiene wheels. Desde [D4](#d4) los corre CI en Python 3.10 con cada push,
+  así que los tests nuevos (bomba de descompresión, `content_type`, prompt injection, `/health`)
+  ya tienen quien los ejecute.
 
 ---
 
@@ -526,11 +526,16 @@ Solución: build multi-stage + `USER appuser`.
 Depende de resolver antes [A7](#a7) (no hay endpoint al cual apuntar).
 
 ### <a id="d4"></a>🟡 D4 · Sin integración continua
-- [ ] Resuelto
+- [x] Resuelto
 
-Existe `backend/tests/test_api.py` con 9 tests y **nada los ejecuta automáticamente**. Un
-workflow de GitHub Actions de ~20 líneas (`pytest` + `npm run lint` + `npm run build`) avisa
-antes de romper producción.
+`.github/workflows/ci.yml` corre en cada push y en los PR contra `main`, con tres jobs:
+
+- **backend** — `pytest` sobre Python 3.10 (la de producción; TensorFlow 2.19 no tiene wheels
+  para ≥3.13). Los modelos se mockean, así que no hacen falta los `.keras`.
+- **frontend** — `npm ci`, `npm run lint` y `npm run build`.
+- **docs** — `.github/scripts/check_docs_links.py` valida que los enlaces relativos entre `.md`
+  y las anclas (`AUDITORIA.md#c7`) resuelvan. Se agregó porque la documentación ya se rompió
+  una vez al mover archivos a `docs/` sin que nada lo detectara.
 
 ### <a id="d5"></a>🟡 D5 · Huecos en la cobertura de tests
 - [ ] Resuelto
